@@ -13,7 +13,7 @@
     <div class="brand"><span class="t">DevBuddy</span><button type="button" id="sidetoggle" class="sm" title="Collapse / expand the sidebar">«</button></div>
     <nav>
       <div class="grp first"><span>Kubernetes</span><span class="pill" id="kpill">…</span></div>
-      <button type="button" title="Connections" data-view="kconns" class="on"><span class="ico">C</span><span class="lbl">Connections</span> <span class="n" id="kconncount"></span></button>
+      <button type="button" title="Clusters" data-view="kconns" class="on"><span class="ico">C</span><span class="lbl">Clusters</span> <span class="n" id="kconncount"></span></button>
       <div id="knav"></div>
       <button type="button" title="Port forwards" data-view="forwards"><span class="ico">F</span><span class="lbl">Port forwards</span> <span class="n" id="fwcount"></span></button>
       <div class="grp" id="redissep" hidden><span>Data stores</span></div>
@@ -34,7 +34,7 @@
 
     <div class="rhead" id="eshead" hidden><button type="button" id="esback" class="sm">← Connections</button><strong id="esname"></strong><span class="t" id="esaddr"></span></div>
 
-    <div id="knotice" class="card knotice" hidden><b>Kubernetes is not connected.</b> <span id="knoticetext"></span> <button type="button" id="knoticego" class="sm">Open Connections</button></div>
+    <div id="knotice" class="card knotice" hidden><b>Kubernetes is not connected.</b> <span id="knoticetext"></span> <button type="button" id="knoticego" class="sm">Open Clusters</button></div>
 
     <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><select id="essrv" hidden title="Elasticsearch connection"></select><select id="rsrv" hidden title="Redis server"></select><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button></div>
 
@@ -126,10 +126,10 @@
 
     <section id="kconnsView" hidden>
       <div class="card"><table>
-        <thead><tr><th class="w-conn">Connection</th><th class="w-addr">Context</th><th>Status</th><th class="w-act3">&nbsp;</th></tr></thead>
+        <thead><tr><th class="w-conn">Cluster</th><th class="w-addr">Context</th><th>Status</th><th class="w-act3">&nbsp;</th></tr></thead>
         <tbody id="kconnrows"></tbody>
       </table></div>
-      <p class="t" style="margin-top:10px">Nothing connects until you press Connect. A connected cluster appears in the sidebar with its own Namespaces, Services, Deployments, Jobs and Pods.</p>
+      <p class="t" style="margin-top:10px">Nothing connects until you press Connect (or switch the cluster on in the sidebar). A connected cluster shows all its pages under its name in the sidebar: Namespaces, Services, Deployments, Jobs and Pods.</p>
     </section>
 
     <section id="forwardsView" hidden>

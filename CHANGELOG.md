@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Renamed to **DevBuddy**.
-- Kubernetes is its own section with several connections (`kubernetes` list in the config) and a Connections page: nothing connects until you press Connect, and each connected cluster is a sidebar node with its own pages and lists.
+- Kubernetes is its own section with several connections (`kubernetes` list in the config) and a Clusters page: nothing connects until you press Connect or switch a cluster on in the sidebar; each cluster is a parent node (with an on/off switch) whose pages are its children, with its own lists.
 - Redis page (keys, console) and a read-only-by-default Elasticsearch / OpenSearch viewer.
 
 ## 0.1.0
