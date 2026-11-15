@@ -99,9 +99,9 @@ function renderKconns() {
   $('kconnrows').innerHTML = clusters.length ? clusters.map((c) => {
     const st = kstate[c.name];
     const acts = st.status === 'connected'
-      ? ab('namespaces', 'Namespaces', 'data-a="namespaces"') + ab('pods', 'Pods', 'data-a="pods"') + ab('power', 'Disconnect', 'data-a="disconnect"')
-      : ab('plug', 'Connect', `data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}`);
-    return `<tr data-n="${esc(c.name)}"><td class="name">${esc(c.name)}</td><td style="word-break:break-all">${esc(c.context)}</td><td>${cell(c)}</td><td class="actions">${acts}</td></tr>`;
+      ? ab('power', 'Disconnect', 'data-a="disconnect"', '', true)
+      : ab('plug', 'Connect', `data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}`, '', true);
+    return `<tr data-n="${esc(c.name)}"><td class="name">${esc(c.name)}</td><td style="overflow-wrap:break-word">${esc(c.context)}</td><td>${cell(c)}</td><td class="actions">${acts}</td></tr>`;
   }).join('') : '<tr><td colspan="4" class="muted">no Kubernetes cluster in the config: add a "kubernetes" list</td></tr>';
 }
 async function connectK8s(name) { // the only place that talks to a cluster before you use it
