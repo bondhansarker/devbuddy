@@ -1,0 +1,20 @@
+# your cluster config: contexts and paths are yours, never commit them (the example file is tracked)
+.config.json
+/dev.json
+/prod.json
+/*.local.json
+
+# build output (dist/ holds the committed release binaries)
+/bin/
+/tmp/
+build-errors.log
+
+# editors, OS, tools
+.idea/
+.vscode/
+.claude/
+.DS_Store
+*.log
+
+# notes for coding assistants stay out of the repo
+CLAUDE.md

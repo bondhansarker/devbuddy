@@ -1,0 +1,16 @@
+[tools]
+go = "1.22"
+
+[tasks.build]
+description = "binary for this machine in bin/"
+run = "go build -o bin/devbuddy ./cmd/devbuddy"
+
+[tasks.build-all]
+description = "binaries for macOS and Linux, arm64 and amd64, in dist/"
+run = "./scripts/build-all.sh"
+
+[tasks.run]
+run = "go run ./cmd/devbuddy"
+
+[tasks.test]
+run = "go vet ./... && go test ./..."

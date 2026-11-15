@@ -1,0 +1,37 @@
+{
+  "addr": "127.0.0.1:9100",
+  "refresh_seconds": 5,
+  "log_tail": 200,
+  "read_only": false,
+  "kubernetes": [
+    {
+      "name": "dev",
+      "kubeconfig": "~/.kube/config",
+      "context": "my-dev-context"
+    },
+    {
+      "name": "staging",
+      "kubeconfig": "~/.kube/config",
+      "context": "my-staging-context"
+    }
+  ],
+  "redis": [
+    {
+      "name": "cache",
+      "addr": "127.0.0.1:6379",
+      "username": "",
+      "password": "",
+      "tls": false
+    }
+  ],
+  "elasticsearch": [
+    {
+      "name": "logs",
+      "addr": "http://127.0.0.1:9200",
+      "username": "",
+      "password": "",
+      "api_key": "",
+      "insecure_skip_verify": false
+    }
+  ]
+}
