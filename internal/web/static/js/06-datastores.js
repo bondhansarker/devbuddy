@@ -65,9 +65,9 @@ function renderDsConns(kind) {
   $(d.rows).innerHTML = d.conns.map((c) => {
     const st = d.state[c.name];
     const acts = st.status === 'connected'
-      ? `${d.pages.map(([t, label]) => ab(t, label, `data-a="${t}"`)).join('')}${ab('power', 'Disconnect', 'data-a="disconnect"')}`
-      : ab('plug', 'Connect', `data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}`);
-    return `<tr data-n="${esc(c.name)}"><td class="name">${esc(c.name)}</td><td style="word-break:break-all">${esc(c.addr)}${c.tls ? ' ' + pill('tls') : ''}</td><td>${cell(c)}</td><td class="actions">${acts}</td></tr>`;
+      ? ab('power', 'Disconnect', 'data-a="disconnect"', '', true)
+      : ab('plug', 'Connect', `data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}`, '', true);
+    return `<tr data-n="${esc(c.name)}"><td class="name">${esc(c.name)}</td><td style="overflow-wrap:break-word">${esc(c.addr)}${c.tls ? ' ' + pill('tls') : ''}</td><td>${cell(c)}</td><td class="actions">${acts}</td></tr>`;
   }).join('');
 }
 ['redis', 'es'].forEach((kind) => $(ds[kind].rows).addEventListener('click', async (e) => {

@@ -132,7 +132,7 @@ function dlgIcons(copyId, closeId) {
 }
 
 // an icon-only action button; the label is its tooltip (and its accessible name)
-const ab = (icon, label, attrs = '', cls = '') => `<button type="button" class="sm icon-btn ${cls}" title="${label}" aria-label="${label}" ${attrs}>${ICONS[icon]}</button>`;
+const ab = (icon, label, attrs = '', cls = '', text = false) => `<button type="button" class="sm ${text ? '' : 'icon-btn'} ${cls}" title="${label}" aria-label="${label}" ${attrs}>${ICONS[icon]}${text ? label : ''}</button>`;
 
 // In-app dialogs instead of the browser's confirm() / prompt().
 // ask({ title, message, fields: [{ name, label, value, type: 'number' | 'select' | 'text', options, hint, required }], ok, danger })
