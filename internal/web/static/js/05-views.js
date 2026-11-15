@@ -10,9 +10,8 @@ function syncKubernetes() {
   const n = clusters.filter((c) => kstate[c.name]?.status === 'connected').length;
   kOk = !!ci && kstate[ci.name]?.status === 'connected';
   kWhy = 'No Kubernetes cluster is connected. Open Clusters and press Connect, or switch one on in the sidebar.';
-  $('kpill').textContent = n ? `${n} connected` : 'not connected';
+  $('kpill').textContent = n ? `${n} on` : 'off';
   $('kpill').className = 'pill ' + (n ? 'ok' : '');
-  $('kconncount').textContent = n || '';
   $('ctx').textContent = ci && kOk ? ci.name : 'not connected';
   $('ctx').title = ci ? ci.context : '';
   $('prod').hidden = !(ci && kOk && /prod/i.test(ci.name + ci.context));
@@ -32,17 +31,24 @@ $('knoticego').onclick = () => showView('kconns');
 function renderKNav() {
   $('knav').innerHTML = clusters.map((c) => {
     const st = kstate[c.name], on = st.status === 'connected', busy = st.status === 'connecting';
+    const closed = navClosed('n:k8s:' + c.name);
     const head = `<div class="knh ${on ? 'on' : 'idle'}">
-      <button type="button" class="kname" data-kh="${esc(c.name)}" title="${esc(c.context)}"><span class="chev">${on ? '▾' : '▸'}</span><span class="ico">${esc(c.name.slice(0, 1).toUpperCase())}</span><span class="lbl">${esc(c.name)}</span></button>
+      <button type="button" class="kname" data-kh="${esc(c.name)}" title="${esc(c.context)}"><span class="chev" data-nodetoggle="n:k8s:${esc(c.name)}" data-r="k8s">${on && !closed ? '▾' : '▸'}</span><span class="ico">${esc(c.name.slice(0, 1).toUpperCase())}</span><span class="lbl">${esc(c.name)}</span></button>
       <button type="button" class="sw ${st.status}" role="switch" aria-checked="${on}" data-toggle="${esc(c.name)}" ${busy ? 'disabled' : ''} title="${on ? 'Connected: switch off to disconnect' : st.status === 'failed' ? 'Failed: ' + esc(st.error) : 'Switch on to connect'}"><i></i></button>
     </div>`;
     const kids = on ? K_PAGES.map(([v, label, letter]) => `<button type="button" class="kc" data-view="${v}" data-kc="${esc(c.name)}" title="${label}"><span class="ico">${letter}</span><span class="lbl">${label}</span> <span class="n" data-badge="${v}">${kbadges[c.name]?.[v] ?? ''}</span></button>`).join('') : '';
-    return `<div class="kn ${on ? 'open' : ''}" data-kc="${esc(c.name)}">${head}${on ? `<div class="kids">${kids}</div>` : ''}</div>`;
+    return `<div class="kn ${on ? 'open' : ''}" data-kc="${esc(c.name)}">${head}${on ? `<div class="kids ${closed ? 'closed' : ''}">${kids}</div>` : ''}</div>`;
   }).join('');
   markNav();
 }
 function markNav() {
-  document.querySelectorAll('nav button[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === view && (!b.dataset.kc || b.dataset.kc === cluster)));
+  document.querySelectorAll('nav .gn').forEach((b) => b.classList.toggle('on', b.dataset.gopen === view));
+  document.querySelectorAll('nav button[data-view]').forEach((b) => {
+    let on = b.dataset.view === view;
+    if (b.dataset.kc) on = on && b.dataset.kc === cluster;
+    if (b.dataset.ds) { const d = ds[b.dataset.ds]; on = on && b.dataset.dn === d.active && b.dataset.tab === d.tab; }
+    b.classList.toggle('on', on);
+  });
 }
 
 // the lists on screen belong to the active connection: park them, bring the other connection's back
@@ -137,24 +143,30 @@ const VIEWS = {
   deployments: ['Deployments', () => `Deployments in ${nsLabel()}.`],
   jobs: ['Jobs', () => `Jobs in ${nsLabel()}.`],
   pods: ['Pods', () => `Pods in ${nsLabel()}: logs, a shell, restart and port forward.`],
-  es: ['Elasticsearch', () => 'Elasticsearch / OpenSearch clusters from the config (read-only): documents, indices and read-only queries.'],
-  redis: ['Redis', () => 'Redis connections from the config. Open one for its keys and a command console.'],
+  esconns: ['Elasticsearch clusters', () => 'The clusters from the config. Nothing connects until you switch one on.'],
+  es: ['Elasticsearch', () => 'Documents (search, view, delete), indices and read-only queries.'],
+  rconns: ['Redis servers', () => 'The servers from the config. Nothing connects until you switch one on.'],
+  redis: ['Redis', () => 'Keys (search, view, delete) and a command console.'],
   forwards: ['Port forwards', () => 'Active forwards to 127.0.0.1. They stop when the app exits.'],
 };
 function showView(v) {
   view = v;
   markNav();
   Object.keys(VIEWS).forEach((k) => ($(k + 'View').hidden = k !== v));
-  const k8s = K8S_VIEWS.includes(v) && cluster; // a cluster's page is headed with the cluster's name
-  $('secTitle').textContent = k8s ? `${cluster} › ${VIEWS[v][0]}` : VIEWS[v][0];
+  const owner = K8S_VIEWS.includes(v) ? cluster : v === 'redis' ? ds.redis.active : v === 'es' ? ds.es.active : ''; // a connection's page is headed with its name
+  $('secTitle').textContent = owner ? `${owner} › ${VIEWS[v][0]}` : VIEWS[v][0];
   $('secDesc').textContent = VIEWS[v][1]();
-  $('nsdd').hidden = v === 'namespaces' || v === 'redis' || v === 'es' || v === 'kconns';
+  $('nsdd').hidden = v === 'namespaces' || v === 'redis' || v === 'es' || v === 'kconns' || v === 'rconns' || v === 'esconns';
   $('search').placeholder = v === 'redis' ? 'Search keys: text, or a pattern like user:*' : 'Search';
   $('statusdd').hidden = $('ownerdd').hidden = v !== 'pods';
   $('search').value = '';
+  if (v === 'redis' && !dsOk('redis')) return showView('rconns'); // no connected server: the list
+  if (v === 'es' && !dsOk('es')) return showView('esconns');
   syncRedisBar();
   syncK8sBar();
   if (v === 'kconns') return renderKconns();
+  if (v === 'rconns') return renderDsConns('redis');
+  if (v === 'esconns') return renderDsConns('es');
   if (K8S_VIEWS.includes(v) && !kOk) return;
   if (v === 'forwards') loadForwards(); else if (v === 'redis') showRedis(); else if (v === 'es') showEs(); else { render(v); load(v); }
 }
@@ -162,9 +174,41 @@ async function toggleK8s(name) { // the switch in the sidebar: on = connect, off
   if (kstate[name].status === 'connected') return disconnectK8s(name);
   if (await connectK8s(name) && !kOk) await setCluster(name); // the first one connected becomes the active one
 }
+// ---- collapsing: whole groups (Kubernetes, Redis, Elasticsearch) and each connection; remembered
+let navState = {};
+try { navState = JSON.parse(localStorage.getItem('k8ui.nav')) || {}; } catch {}
+const navClosed = (key) => !!navState[key];
+function setNavClosed(key, closed) {
+  navState[key] = closed;
+  try { localStorage.setItem('k8ui.nav', JSON.stringify(navState)); } catch {}
+}
+function applyGroups() {
+  document.querySelectorAll('nav .gbody').forEach((b) => b.classList.toggle('closed', navClosed('g:' + b.dataset.gbody)));
+  document.querySelectorAll('nav .gt').forEach((b) => (b.textContent = navClosed('g:' + b.dataset.gtoggle) ? '▸' : '▾'));
+}
 document.querySelector('nav').addEventListener('click', async (e) => {
+  const gt = e.target.closest('[data-gtoggle]');
+  if (gt) { setNavClosed('g:' + gt.dataset.gtoggle, !navClosed('g:' + gt.dataset.gtoggle)); return applyGroups(); }
+  const go = e.target.closest('[data-gopen]');
+  if (go) return showView(go.dataset.gopen); // a group's name opens its overview
+  const nt = e.target.closest('[data-nodetoggle]');
+  if (nt) { // the arrow of a connected connection folds its pages
+    const key = nt.dataset.nodetoggle, name = key.split(':').slice(2).join(':'), kind = key.split(':')[1];
+    const connected = kind === 'k8s' ? kstate[name]?.status === 'connected' : ds[kind].state[name]?.status === 'connected';
+    if (connected) { setNavClosed(key, !navClosed(key)); kind === 'k8s' ? renderKNav() : renderDsNav(kind); }
+    return; // an idle connection has nothing to fold
+  }
   const sw = e.target.closest('button[data-toggle]');
   if (sw) return toggleK8s(sw.dataset.toggle);
+  const dsw = e.target.closest('button[data-dstoggle]');
+  if (dsw) return toggleDs(dsw.dataset.dstoggle, dsw.dataset.dn);
+  const dh = e.target.closest('button[data-dh]');
+  if (dh) { // a server's / cluster's name: its first page when connected, else the list to connect
+    const d = ds[dh.dataset.dh];
+    return d.state[dh.dataset.dn].status === 'connected' ? openDs(dh.dataset.dh, dh.dataset.dn, d.pages[0][0]) : showView(d.list);
+  }
+  const dc = e.target.closest('button[data-ds]');
+  if (dc) return openDs(dc.dataset.ds, dc.dataset.dn, dc.dataset.tab); // a page under a connection
   const h = e.target.closest('button[data-kh]');
   if (h) { // a cluster's name: its pods when connected, else the Clusters page
     if (kstate[h.dataset.kh].status !== 'connected') return showView('kconns');

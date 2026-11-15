@@ -2,73 +2,41 @@
 // (Plain scripts share one global scope: index.html loads them in numeric order.)
 
 // ---- Elasticsearch / OpenSearch (read-only): connection list, then Documents, Indices and Query per connection
-const es = { conns: [], open: false, tab: 'docs', hits: [], total: 0, relation: 'eq', gen: 0, indices: [], err: '', sel: new Set() };
+const es = { tab: 'docs', hits: [], total: 0, relation: 'eq', gen: 0, indices: [], err: '', sel: new Set(), loaded: false }; // state of the ACTIVE cluster
 const esid = (h) => `${h.index}\u0001${h.id}`;
-const essrv = () => $('essrv').value;
+const essrv = () => ds.es.active; // the active Elasticsearch cluster
 const esSel = multiSelect($('esidxdd'), 'All indices', 'indices', () => { if (es.tab === 'docs') loadEsDocs(true); });
 esSel.extraUnit = 'docs';
 const esIndexParam = () => esSel.selected.join(',');
 const fmtBytes = (n) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1073741824).toFixed(2)} GB`);
 const esUrl = (path, q = {}) => `/api/es/${encodeURIComponent(essrv())}/${path}?${new URLSearchParams(q)}`;
 
+// Each cluster keeps its own documents, index choice, search text and indices: parked when you move to another.
+ds.es.save = () => ({ hits: es.hits, total: es.total, relation: es.relation, took: es.took, indices: es.indices, err: es.err, sel: es.sel, loaded: es.loaded,
+  idx: esSel.selected, vals: esSel.vals, extra: esSel.extra, q: $('esq').value, f: $('esidxfilter').value });
+ds.es.load = (s) => {
+  es.gen++; // answers still on their way for the previous cluster are dropped
+  Object.assign(es, { hits: s?.hits ?? [], total: s?.total ?? 0, relation: s?.relation ?? 'eq', took: s?.took, indices: s?.indices ?? [], err: s?.err ?? '', sel: s?.sel ?? new Set(), loaded: s?.loaded ?? false });
+  esSel.options(s?.vals ?? [], s?.extra ?? {});
+  esSel.set(s?.idx ?? []);
+  $('esq').value = s?.q ?? ''; $('esidxfilter').value = s?.f ?? '';
+};
 function syncEsBar() {
-  const open = view === 'es' && es.open;
+  const open = view === 'es';
   $('eshead').hidden = !open;
   $('esidxdd').hidden = !open || es.tab === 'query'; // the query tab names its own path
-  $('essrv').hidden = !open;
 }
-async function initEs() { // at boot: the page only exists when the config names a cluster
-  const list = await api('/api/es').catch(() => []);
-  es.conns = list;
-  $('esnav').hidden = !list.length;
-  $('redissep').hidden = !list.length && $('redisnav').hidden;
-  $('escount').textContent = list.length;
-  $('essrv').innerHTML = list.map((i) => `<option value="${esc(i.name)}" title="${esc(i.addr)}">${esc(i.name)}</option>`).join('');
-}
-function showEs() {
-  es.open = false;
-  $('eslist').hidden = false; $('esdetail').hidden = true;
-  syncRedisBar();
-  const healthPill = (h) => (h ? pill(h, h === 'green' ? 'ok' : h === 'red' ? 'bad' : '') : '');
-  $('esconns').innerHTML = es.conns.map((c) => `<tr data-n="${esc(c.name)}"><td class="name"><a href="#" data-a="docs" style="color:inherit;text-decoration:none">${esc(c.name)}</a></td>
-    <td>${esc(c.addr)}</td><td class="st muted">checking…</td>
-    <td class="actions"><button type="button" class="sm" data-a="docs">Documents</button><button type="button" class="sm" data-a="indices">Indices</button><button type="button" class="sm" data-a="query">Query</button></td></tr>`).join('');
-  es.conns.forEach(async (c) => {
-    const row = $('esconns').querySelector(`tr[data-n="${CSS.escape(c.name)}"]`), t0 = performance.now();
-    try {
-      const r = await api(`/api/es/${encodeURIComponent(c.name)}/info`);
-      if (row.isConnected) row.querySelector('.st').innerHTML = `${healthPill(r.health) || pill('connected', 'ok')} <span class="muted">${esc(r.flavor)} ${esc(r.version)} · cluster ${esc(r.cluster)} · ${Math.round(performance.now() - t0)} ms</span>`;
-    } catch (e) {
-      if (row.isConnected) row.querySelector('.st').innerHTML = `${pill('unreachable', 'bad')} <span class="muted" title="${esc(e.message)}">${esc(e.message.slice(0, 80))}</span>`;
-    }
-  });
-}
-$('esconns').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-a]');
-  if (!b) return;
-  e.preventDefault();
-  openEs(b.closest('tr').dataset.n, b.dataset.a);
-});
-async function openEs(name, tab) {
-  $('essrv').value = name;
-  const c = es.conns.find((x) => x.name === name);
+// the Elasticsearch page of the active cluster: Documents, Indices or Query (the sidebar picks which)
+async function showEs() {
+  const name = essrv(), c = ds.es.conns.find((x) => x.name === name);
   $('esname').textContent = name; $('esaddr').textContent = c ? c.addr : '';
-  es.open = true;
-  $('eslist').hidden = true; $('esdetail').hidden = false;
-  esSel.set([]);
-  await loadEsIndices();
-  setEsTab(tab);
+  if (!es.loaded) { es.loaded = true; await loadEsIndices(); }
+  setEsTab(ds.es.tab);
 }
-$('esback').onclick = showEs;
-$('essrv').onchange = async () => {
-  const c = es.conns.find((x) => x.name === essrv());
-  $('esname').textContent = essrv(); $('esaddr').textContent = c ? c.addr : '';
-  esSel.set([]);
-  await loadEsIndices();
-  setEsTab(es.tab);
-};
 function setEsTab(t) {
   es.tab = t;
+  ds.es.tab = t;
+  markNav();
   document.querySelectorAll('#esdetail .rtabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
   $('esdocs').hidden = t !== 'docs'; $('esidx').hidden = t !== 'indices'; $('esquery').hidden = t !== 'query';
   syncEsBar();
@@ -78,8 +46,11 @@ function setEsTab(t) {
 document.querySelector('#esdetail .rtabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-t]'); if (b) setEsTab(b.dataset.t); });
 
 async function loadEsIndices() {
+  const name = essrv();
   try {
-    es.indices = await api(esUrl('indices'));
+    const list = await api(esUrl('indices'));
+    if (name !== essrv()) return; // another cluster became active meanwhile
+    es.indices = list;
     esSel.options(es.indices.map((i) => i.index), Object.fromEntries(es.indices.map((i) => [i.index, i.docs])));
   } catch (e) { es.indices = []; toast(e.message); }
 }
