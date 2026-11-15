@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -29,7 +28,6 @@ func (quietCancel) Write(p []byte) (int, error) {
 
 func main() {
 	cfgPath := flag.String("config", "", "config file, required (default: ./.config.json, then ~/.config/devbuddy/config.json)")
-	insecure := flag.Bool("insecure-bind", false, "allow a non-loopback addr (exec = cluster access, no auth here)")
 	flag.Parse()
 	klog.LogToStderr(false)
 	klog.SetOutput(quietCancel{})
@@ -37,12 +35,6 @@ func main() {
 	cfg, used, err := config.Load(*cfgPath)
 	if err != nil {
 		log.Fatalf("config: %v", err)
-	}
-
-	if host, _, _ := net.SplitHostPort(cfg.Addr); !*insecure && host != "localhost" {
-		if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
-			log.Fatalf("refusing non-loopback addr %q without --insecure-bind", cfg.Addr)
-		}
 	}
 
 	// Every Kubernetes connection from the config; one that cannot be set up is kept and shown as not connected.

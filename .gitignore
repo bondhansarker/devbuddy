@@ -4,7 +4,8 @@
 /prod.json
 /*.local.json
 
-# build output (dist/ holds the committed release binaries)
+# build output (release binaries go on GitHub Releases, not in git)
+/dist/
 /bin/
 /tmp/
 build-errors.log

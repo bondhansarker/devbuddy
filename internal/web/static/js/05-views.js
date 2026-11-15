@@ -12,12 +12,11 @@ function syncKubernetes() {
   kWhy = 'No Kubernetes cluster is connected. Open Clusters and press Connect, or switch one on in the sidebar.';
   $('kpill').textContent = ''; $('kpill').title = n ? `${n} connected` : 'not connected'; // shown as a coloured dot
   $('kpill').className = 'pill ' + (n ? 'ok' : '');
-  $('ctx').textContent = ci && kOk ? ci.name : 'not connected';
-  $('ctx').title = ci ? ci.context : '';
   $('prod').hidden = !(ci && kOk && /prod/i.test(ci.name + ci.context));
 }
 function syncK8sBar() {
   const k = K8S_VIEWS.includes(view);
+  $('refreshctl').hidden = !((k && kOk) || view === 'forwards'); // only where there is something that refreshes
   $('knotice').hidden = !(k && !kOk);
   $('knoticetext').textContent = kWhy;
   if (view === 'kconns' || (k && !kOk)) { // nothing to filter or list here
@@ -139,14 +138,12 @@ $('kconnrows').addEventListener('click', async (e) => {
     if (await connectK8s(name) && !kOk) await setCluster(name); // the first connection becomes the active one
     return;
   }
-  await setCluster(name); // Namespaces / Pods of a connected cluster
-  showView(b.dataset.a);
 });
 
 // ---- views and theme
 const VIEWS = {
   kconns: ['Kubernetes clusters', () => 'The clusters from the config. Nothing connects until you switch one on.'],
-  namespaces: ['Namespaces', () => 'The namespaces of the cluster. Open one to work in it.'],
+  namespaces: ['Namespaces', () => 'The namespaces of the cluster: create one, or delete one.'],
   services: ['Services', () => `Services in ${nsLabel()}.`],
   deployments: ['Deployments', () => `Deployments in ${nsLabel()}.`],
   jobs: ['Jobs', () => `Jobs in ${nsLabel()}.`],

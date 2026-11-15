@@ -2,8 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/bondhansarker/devbuddy/internal/kube"
 )
 
 func (s *Server) namespaces(w http.ResponseWriter, r *http.Request) {
@@ -161,4 +165,121 @@ func (s *Server) podFor(kind string) http.HandlerFunc {
 		}
 		ok(w, map[string]string{"pod": pod})
 	}
+}
+
+func (s *Server) describePod(w http.ResponseWriter, r *http.Request) {
+	k, okc := s.cluster(w, r)
+	if !okc {
+		return
+	}
+	d, err := k.Describe(r.Context(), r.PathValue("ns"), r.PathValue("pod"))
+	if err != nil {
+		kubeFail(w, err)
+		return
+	}
+	ok(w, d)
+}
+
+// podMetrics is optional: 404 tells the UI this cluster has no metrics-server, so it hides the columns.
+func (s *Server) podMetrics(w http.ResponseWriter, r *http.Request) {
+	k, okc := s.cluster(w, r)
+	if !okc {
+		return
+	}
+	l, err := listIn(r, k.PodMetrics)
+	if errors.Is(err, kube.ErrNoMetrics) {
+		fail(w, http.StatusNotFound, err)
+		return
+	}
+	if err != nil {
+		kubeFail(w, err)
+		return
+	}
+	ok(w, l)
+}
+
+func (s *Server) scaleDeployment(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.ReadOnly {
+		fail(w, http.StatusForbidden, errReadOnly)
+		return
+	}
+	k, okc := s.cluster(w, r)
+	if !okc {
+		return
+	}
+	var body struct {
+		Replicas *int32 `json:"replicas"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil || body.Replicas == nil || *body.Replicas < 0 || *body.Replicas > 10000 {
+		fail(w, http.StatusBadRequest, errors.New(`body must be {"replicas": 0..10000}`))
+		return
+	}
+	if err := k.ScaleDeployment(r.Context(), r.PathValue("ns"), r.PathValue("name"), *body.Replicas); err != nil {
+		kubeFail(w, err)
+		return
+	}
+	ok(w, map[string]int32{"replicas": *body.Replicas})
+}
+
+func (s *Server) restartDeployment(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.ReadOnly {
+		fail(w, http.StatusForbidden, errReadOnly)
+		return
+	}
+	k, okc := s.cluster(w, r)
+	if !okc {
+		return
+	}
+	if err := k.RestartDeployment(r.Context(), r.PathValue("ns"), r.PathValue("name")); err != nil {
+		kubeFail(w, err)
+		return
+	}
+	ok(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) createNamespace(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.ReadOnly {
+		fail(w, http.StatusForbidden, errReadOnly)
+		return
+	}
+	k, okc := s.cluster(w, r)
+	if !okc {
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil || body.Name == "" {
+		fail(w, http.StatusBadRequest, errors.New(`body must be {"name": "..."}`))
+		return
+	}
+	if err := k.CreateNamespace(r.Context(), body.Name); err != nil {
+		if errors.Is(err, kube.ErrBadNamespace) {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		kubeFail(w, err)
+		return
+	}
+	ok(w, map[string]string{"name": body.Name})
+}
+
+func (s *Server) deleteNamespace(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.ReadOnly {
+		fail(w, http.StatusForbidden, errReadOnly)
+		return
+	}
+	k, okc := s.cluster(w, r)
+	if !okc {
+		return
+	}
+	if err := k.DeleteNamespace(r.Context(), r.PathValue("name")); err != nil {
+		if errors.Is(err, kube.ErrBadNamespace) || errors.Is(err, kube.ErrProtectedNamespace) {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		kubeFail(w, err)
+		return
+	}
+	ok(w, map[string]bool{"ok": true})
 }

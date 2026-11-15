@@ -121,3 +121,46 @@ func (s *Server) redisCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	ok(w, map[string]string{"output": out})
 }
+
+func (s *Server) redisSet(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.ReadOnly {
+		fail(w, http.StatusForbidden, errReadOnly)
+		return
+	}
+	var body struct {
+		DB    int    `json:"db"`
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20)).Decode(&body); err != nil || body.Key == "" {
+		fail(w, http.StatusBadRequest, errors.New("body must be {db, key, value}"))
+		return
+	}
+	ctx, cancel := redisCtx(r)
+	defer cancel()
+	if err := s.rd.SetString(ctx, r.PathValue("name"), body.DB, body.Key, body.Value); err != nil {
+		redisFail(w, err)
+		return
+	}
+	ok(w, map[string]bool{"ok": true})
+}
+
+// redisExport only reads, so it works under read_only too.
+func (s *Server) redisExport(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		DB   int      `json:"db"`
+		Keys []string `json:"keys"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		fail(w, http.StatusBadRequest, errors.New("body must be {db, keys}"))
+		return
+	}
+	ctx, cancel := redisCtx(r)
+	defer cancel()
+	items, err := s.rd.Export(ctx, r.PathValue("name"), body.DB, body.Keys)
+	if err != nil {
+		redisFail(w, err)
+		return
+	}
+	ok(w, items)
+}

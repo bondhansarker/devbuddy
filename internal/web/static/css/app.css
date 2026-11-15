@@ -268,3 +268,26 @@ dialog.ask { width:min(440px, 94vw); } dialog.ask form { display:flex; flex-dire
 dialog.ask .foot { display:flex; justify-content:flex-end; gap:10px; padding:10px 16px; border-top:1px solid var(--line); }
 dialog.ask .foot .danger { background:var(--danger); border-color:var(--danger); color:#fff; } dialog.ask .foot .primary { background:var(--accent); border-color:var(--accent); color:#fff; }
 dialog.ask .foot .danger { background:#c62828; border-color:#c62828; color:#fff; } dialog.ask .foot .primary { background:#0b6bcb; border-color:#0b6bcb; color:#fff; }
+#podsView.nometrics .m { display:none; }
+#msg.cmd { display:flex; align-items:flex-start; gap:10px; } #msg .tt { flex:1; min-width:0; white-space:pre-wrap; word-break:break-all; } #msg .tcopy { flex:none; padding:3px 6px; } #msg .tcopy svg { width:14px; height:14px; }
+.askf textarea { width:100%; font:12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize:vertical; min-height:120px; }
+dialog.ask:has(textarea) { width:min(640px, 94vw); }
+/* row actions: smaller text, and they wrap instead of pushing the table past its card */
+td.actions { white-space:normal; } td.actions button.sm { font-size:11.5px; padding:3px 6px; gap:4px; margin:1px 0 1px 2px; line-height:1.4; }
+td.actions button.sm svg { width:13px; height:13px; } td.actions button.icon-btn { padding:3px 6px; }
+td.name { overflow-wrap:anywhere; }
+td.actions button.sm { white-space:nowrap; } td.actions { min-width:210px; }
+#podsView td.actions { min-width:250px; } #podsView td.num, #podsView th.num { white-space:nowrap; }
+/* narrower windows: row actions fall back to icons only (the tooltip keeps the name), so tables stay inside their card */
+@media (max-width: 1450px) {
+  td.actions, #podsView td.actions { min-width:0; }
+}
+@media (max-width: 1150px) { #podsView .m { display:none; } }
+@media (max-width: 1450px) { #podsView th, #podsView td, #jobsView th, #jobsView td, #servicesView th, #servicesView td, #deploymentsView th, #deploymentsView td { padding-left:9px; padding-right:9px; } }
+@media (max-width: 1450px) { #podsView td.actions { min-width:178px; } #jobsView td.actions, #servicesView td.actions, #deploymentsView td.actions { min-width:112px; } }
+@media (max-width: 1450px) { #podsView td.actions { min-width:104px; } #jobsView td.actions, #servicesView td.actions, #deploymentsView td.actions { min-width:72px; } }
+@media (max-width: 1300px) { #podsView .m { display:none; } }
+@media (min-width: 1260px) { #servicesView td.actions { white-space:nowrap; min-width:max-content; } } /* services: Logs, Shell and Forward on one line when the window has room */
+@media (max-width: 1050px) { #podsView th:nth-child(9), #podsView td:nth-child(9), #jobsView th:nth-child(7), #jobsView td:nth-child(7) { display:none; } }
+.refreshctl { margin-left:auto; display:inline-flex; align-items:center; gap:8px; } .autorefresh { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; cursor:pointer; user-select:none; } .autorefresh input { width:15px; height:15px; margin:0; accent-color:var(--accent); }
+#refreshnow.spin svg { animation:swspin .8s linear infinite; } @keyframes swspin { to { transform:rotate(360deg); } }

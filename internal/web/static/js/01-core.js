@@ -1,9 +1,15 @@
 // sidebar icons (inline SVG, drawn in currentColor)
 const ICONS = {
+  namespaces: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" stroke-dasharray="3 3"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>',
+  info: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg>',
+  scale: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  download: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>',
   view: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   trash: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14M10 11v6M14 11v6"/></svg>',
   play: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l13 8-13 8z"/></svg>',
-  stop: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   open: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   plug: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></svg>',
   power: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M6.4 6.4a8 8 0 1 0 11.2 0"/></svg>',
@@ -18,7 +24,6 @@ const ICONS = {
   redis: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/><circle cx="9.6" cy="7.6" r=".9" fill="currentColor"/><path d="M12.6 8.7l1.6-2.4 1.6 2.4z" fill="currentColor"/></svg>',
   es: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.8 2.7L9 9.5M2.6 8.2L9 9.5l3 3 8.3-4.6M12 12.5l3 3 5.9.4M15 15.5l-.8 5.9"/></svg>',
   chev: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
-  namespaces: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" stroke-dasharray="3 3"/></svg>',
   services: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/></svg>',
   deployments: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/></svg>',
   jobs: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>',
@@ -42,18 +47,27 @@ const inNs = (name) => !selected.length || selected.includes(name);
 let settings = { refresh_seconds: 5, log_tail: 200, read_only: false };
 
 function toast(msg) {
-  const t = $('msg');
-  t.textContent = msg;
-  t.classList.toggle('cmd', /^[$#] /.test(msg)); // a kubectl command: monospace
+  const t = $('msg'), cmd = /^[$#] /.test(msg); // a command: monospace, with a button that copies it
+  const lines = msg.split('\n').filter((l) => l.startsWith('$ ')).map((l) => l.slice(2));
+  t.classList.toggle('cmd', cmd);
+  if (lines.length) {
+    t.innerHTML = '<span class="tt"></span><button type="button" class="icon tcopy" title="Copy the command"></button>';
+    t.firstChild.textContent = msg;
+    const b = t.querySelector('.tcopy');
+    b.innerHTML = ICONS.copy;
+    b.onclick = () => navigator.clipboard.writeText(lines.join('\n')).then(() => (b.innerHTML = ICONS.check), () => {});
+  } else t.textContent = msg;
   t.hidden = false;
-  clearTimeout(toast.h);
-  toast.h = setTimeout(() => (t.hidden = true), t.classList.contains('cmd') ? 8000 : 5000);
+  const hide = () => { clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), cmd ? 8000 : 5000); };
+  t.onmouseenter = () => clearTimeout(toast.h); // reading or copying: keep it
+  t.onmouseleave = hide;
+  hide();
 }
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.error || r.statusText);
+  if (!r.ok) throw Object.assign(new Error(body.error || r.statusText), { status: r.status });
   return body;
 }
 
@@ -61,7 +75,6 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 const pill = (t, cls = '') => `<span class="pill ${cls}">${esc(t)}</span>`;
 // image drops the registry path for the cell; the full name is the tooltip.
-const image = (i) => `<span title="${esc(i)}">${esc(i.slice(i.lastIndexOf('/') + 1))}</span>`;
 const none = '<span class="muted">—</span>';
 
 // The namespace filter in the bar: "" = every namespace. Hidden on the Namespaces page, which lists them.
@@ -143,9 +156,10 @@ function ask({ title = '', message = '', fields = [], ok = 'OK', danger = false 
     $('asktitle').textContent = title;
     $('askx').innerHTML = ICONS.close; $('askx').title = 'Cancel';
     $('askbody').innerHTML = (message ? `<p class="askmsg">${esc(message)}</p>` : '') + fields.map((f) => `<label class="askf"><span>${esc(f.label)}</span>${
-      f.type === 'select'
+      f.type === 'textarea' ? `<textarea name="${esc(f.name)}" rows="${f.rows || 8}" spellcheck="false">${esc(f.value ?? '')}</textarea>`
+      : f.type === 'select'
         ? `<select name="${esc(f.name)}">${f.options.map((o) => `<option${o === f.value ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`
-        : `<input name="${esc(f.name)}" type="${f.type || 'text'}" value="${esc(f.value ?? '')}" ${f.type === 'number' ? 'min="1" max="65535"' : ''} ${f.required ? 'required' : ''} autocomplete="off">`
+        : `<input name="${esc(f.name)}" type="${f.type || 'text'}" value="${esc(f.value ?? '')}" ${f.type === 'number' ? `min="${f.min ?? 1}" max="${f.max ?? 65535}"` : ''} ${f.pattern ? `pattern="${esc(f.pattern)}" title="${esc(f.hint || '')}"` : ''} ${f.maxlength ? `maxlength="${f.maxlength}"` : ''} ${f.required ? 'required' : ''} autocomplete="off">`
     }${f.hint ? `<small class="muted">${esc(f.hint)}</small>` : ''}</label>`).join('');
     const okb = $('askok');
     okb.textContent = ok; okb.className = danger ? 'danger' : 'primary';
@@ -159,3 +173,12 @@ function ask({ title = '', message = '', fields = [], ok = 'OK', danger = false 
   });
 }
 const askConfirm = (message, opts = {}) => ask({ message, ...opts }).then((r) => r !== null);
+
+// hands text to the browser as a file download
+function download(name, text, type = 'text/plain') {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}

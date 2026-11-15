@@ -10,7 +10,7 @@ A local web UI for debugging your stack: **Kubernetes** (namespaces, services, d
 
 ## Run
 
-Prebuilt binaries are in `dist/` (`devbuddy-{darwin,linux}-{arm64,amd64}`, checksums in `SHA256SUMS`). Or build: `go build -o bin/devbuddy ./cmd/devbuddy` (`./scripts/build-all.sh` builds all four).
+Prebuilt binaries (`devbuddy-{darwin,linux}-{arm64,amd64}` with `SHA256SUMS`) are attached to the GitHub Releases. Or build: `go build -o bin/devbuddy ./cmd/devbuddy` (`./scripts/build-all.sh` builds all four into `dist/`, which is gitignored).
 
 ```bash
 cp .config.example.json .config.json   # fill in the connections you use
@@ -40,15 +40,15 @@ A JSON file is required and every key must be set. Lookup: `--config <path>`, `.
 ]
 ```
 
-Each entry is a separate connection with a unique `name`. In the sidebar the connections sit flat under the **Kubernetes** heading, each with an on/off switch, and **nothing connects until you switch one on** (not at start-up, not on reload). Switched on, a cluster shows all its pages as children (Namespaces, Services, Deployments, Jobs, Pods), headed with its name (`dev › Pods`); switched off, it is untouched. Every cluster keeps its own lists and filters: pods of two clusters are never mixed. Connect as many as you like; clicking a page under a cluster makes it the active one. Switching off drops that cluster's lists (its shells keep running until you close the tab). A cluster whose kubeconfig cannot be loaded shows a red switch with the reason in its tooltip, and the app still starts, so you can use it for Redis or Elasticsearch only. After a reload, switch the cluster on again: its open shells and log tabs come back. A name or context containing `prod` shows a red "production" pill for the active cluster.
+Each entry is a separate connection with a unique `name`. In the sidebar the connections sit flat under the **Kubernetes** heading, each with an on/off switch, and **nothing connects until you switch one on** (not at start-up, not on reload). Switched on, a cluster shows all its pages as children (Services, Deployments, Jobs, Pods; the namespace filter is in the bar), headed with its name (`dev › Pods`); switched off, it is untouched. Every cluster keeps its own lists and filters: pods of two clusters are never mixed. Connect as many as you like; clicking a page under a cluster makes it the active one. Switching off drops that cluster's lists (its shells keep running until you close the tab). A cluster whose kubeconfig cannot be loaded shows a red switch with the reason in its tooltip, and the app still starts, so you can use it for Redis or Elasticsearch only. After a reload, switch the cluster on again: its open shells and log tabs come back. A name or context containing `prod` shows a red "production" pill for the active cluster.
 
-Everything in the sidebar folds: click the arrow next to **Kubernetes**, **Redis** or **Elasticsearch** to fold the whole group, or the arrow of a connected cluster / server to fold just its pages (remembered across reloads). Clicking a group's name opens its overview, a table with each connection's status, error and Connect / Disconnect buttons.
+Everything in the sidebar folds: click the arrow next to **Kubernetes**, **Redis** or **Elasticsearch** to fold the whole group, or the arrow of a connected cluster / server to fold just its pages (remembered across reloads). Pods have a **Describe** action (status, container states with why the last one ended, and events, as JSON) and CPU / memory columns when the cluster runs metrics-server. Deployments can be **scaled** and **rollout-restarted** (both off with `read_only`). The open page reloads every `refresh_seconds`; the **Auto refresh** checkbox at the right of the filter bar turns that off (remembered in the browser), and the refresh button beside it reloads once. Failed reloads back off instead of repeating every tick. Log tabs have a "since" range and a level filter in the `⋯` menu. Every action shows the `kubectl` command it equals as a toast, with a button to copy it.
 
-The older form (`"kubeconfig"` and `"context"` as two top-level keys) still works and counts as one connection named after the context.
+Clicking a group's name opens its overview, a table with each connection's status, error and Connect / Disconnect buttons.
 
 ## Redis
 
-Add servers to the config to get a **Redis** group in the sidebar, built like Kubernetes: the servers sit flat under the heading, each with an on/off switch, and nothing connects until you switch one on. A connected server shows **Keys** and **Console** under its name and keeps its own keys, db choice, search, type filter and console session. On the Keys page the filter bar has a dropdown of db indexes (tick several), and the key table's header holds the controls: a search box in the Key column (plain text matches anywhere, or a glob like `user:*`), a type filter in the Type column (done by the server with `SCAN … TYPE`, so it needs Redis 6+), and a click on the TTL header sorts the keys shown (soonest first, longest first, off; keys without an expiry count as the longest). You can also view a key of any type, delete one or several. Keys are listed with `SCAN`, never `KEYS`; large values are cut off (1 MB of a string, 500 elements of a collection).
+Add servers to the config to get a **Redis** group in the sidebar, built like Kubernetes: the servers sit flat under the heading, each with an on/off switch, and nothing connects until you switch one on. A connected server shows **Keys** and **Console** under its name and keeps its own keys, db choice, search, type filter and console session. On the Keys page the filter bar has a dropdown of db indexes (tick several), and the key table's header holds the controls: a search box in the Key column (plain text matches anywhere, or a glob like `user:*`), a type filter in the Type column (done by the server with `SCAN … TYPE`, so it needs Redis 6+), and a click on the TTL header sorts the keys shown (soonest first, longest first, off; keys without an expiry count as the longest). You can also view a key of any type, delete one or several, edit a string (its TTL is kept), and export keys (the selected ones, else the listed ones, up to 200) with their values as one JSON file. Edits are off with `read_only`; export is a read and stays on. Keys are listed with `SCAN`, never `KEYS`; large values are cut off (1 MB of a string, 500 elements of a collection).
 
 ```json
 "redis": [{ "name": "cache", "addr": "10.0.0.5:6379", "username": "", "password": "", "tls": false }]
@@ -68,6 +68,7 @@ Only `name` and `addr` are required (`http://` is assumed without a scheme). Use
 
 - **Documents:** the box in the table header takes a Lucene query (`user:alice AND status:active`) or plain words; 50 per page with **Load more**, up to Elasticsearch's 10,000 result window. **View** shows the full document as JSON.
 - **Indices:** name, health, docs, size and shards with a name filter; **Documents** jumps to that index, **Mapping** shows its mapping.
+- **Export:** the loaded documents (or the ticked ones) as JSON or CSV.
 - **Query:** read-only REST calls: any `GET`, and `POST` on `_search`, `_count`, `_msearch`, `_mget`, `_analyze` and similar. `PUT`, `DELETE`, `_bulk`, `_update` and the like are refused there, always: the Query tab never writes.
 - **Delete:** the Documents tab has a **Delete** button per row, and checkboxes with **Delete selected**. Each document is deleted by index and id from the exact index it was listed in (never by pattern or wildcard, up to 500 at once), after a confirmation. `read_only: true` removes every delete control and the server refuses the request. A deleted document can still show in searches for about a second, and disk space returns later when Elasticsearch merges segments. Your user or API key needs `delete` rights on the index.
 
@@ -84,11 +85,11 @@ internal/
   esview/            Elasticsearch / OpenSearch
   web/               the UI, embedded into the binary
     static/          index.html, css/, js/ (plain scripts loaded in order), vendor/ (xterm.js)
-scripts/build-all.sh builds macOS and Linux binaries into dist/
+scripts/build-all.sh builds macOS and Linux binaries into dist/ (gitignored)
 ```
 
 ## Security
 
-No authentication, and a shell is full access to whatever your kubeconfig can reach; the Redis page can delete any key on the configured servers and the Elasticsearch page can delete documents (both are off with `read_only: true`). It listens on loopback only (`--insecure-bind` overrides it; don't), refuses cross-origin browser requests and any request whose `Host` is not localhost (a guard against DNS rebinding), and `read_only: true` is advised for production. Config files are gitignored.
+No authentication, and a shell is full access to whatever your kubeconfig can reach; the Redis page can delete any key on the configured servers and the Elasticsearch page can delete documents (both are off with `read_only: true`). It listens on loopback only (the config refuses any other `addr`), refuses cross-origin browser requests and any request whose `Host` is not localhost (a guard against DNS rebinding), and `read_only: true` is advised for production. Config files are gitignored.
 
 [MIT](LICENSE). `internal/web/static/vendor/` is xterm.js (MIT).

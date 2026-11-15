@@ -71,6 +71,7 @@ type Deployment struct {
 	UpToDate  int32  `json:"up_to_date"`
 	Available int32  `json:"available"`
 	Age       string `json:"age"`
+	Replicas  int32  `json:"replicas"`
 }
 
 func (c *Client) Deployments(ctx context.Context, ns string) ([]Deployment, error) {
@@ -85,7 +86,7 @@ func (c *Client) Deployments(ctx context.Context, ns string) ([]Deployment, erro
 			want = *d.Spec.Replicas
 		}
 		out = append(out, Deployment{d.Name, d.Namespace, fmt.Sprintf("%d/%d", d.Status.ReadyReplicas, want),
-			d.Status.UpdatedReplicas, d.Status.AvailableReplicas, age(d.CreationTimestamp.Time)})
+			d.Status.UpdatedReplicas, d.Status.AvailableReplicas, age(d.CreationTimestamp.Time), want})
 	}
 	return out, nil
 }

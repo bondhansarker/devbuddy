@@ -11,7 +11,7 @@
 <body>
 <div class="app">
   <aside>
-    <div class="brand"><span class="logo"><svg viewBox="0 0 100 86" width="34" height="29" aria-hidden="true"><g fill="currentColor"><path fill-rule="evenodd" d="M12 78a38 38 0 0 1 76 0h-14a24 24 0 0 0-48 0z"/><rect x="2" y="60" width="14" height="22" rx="4"/><rect x="84" y="60" width="14" height="22" rx="4"/><ellipse cx="39" cy="68" rx="5" ry="8"/><ellipse cx="61" cy="68" rx="5" ry="8"/><ellipse cx="22" cy="16" rx="4.5" ry="7" transform="rotate(-20 22 16)"/><ellipse cx="78" cy="16" rx="4.5" ry="7" transform="rotate(20 78 16)"/></g><g stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M26 24l10 16M74 24L64 40"/></g></svg></span><span class="t">DevBuddy<small>Debug your stack</small></span></div>
+    <div class="brand"><span class="logo"><svg viewBox="0 0 100 86" width="34" height="29" aria-hidden="true"><g fill="currentColor"><path fill-rule="evenodd" d="M12 78a38 38 0 0 1 76 0h-14a24 24 0 0 0-48 0z"/><rect x="2" y="60" width="14" height="22" rx="4"/><rect x="84" y="60" width="14" height="22" rx="4"/><ellipse cx="39" cy="68" rx="5" ry="8"/><ellipse cx="61" cy="68" rx="5" ry="8"/><ellipse cx="22" cy="16" rx="4.5" ry="7" transform="rotate(-20 22 16)"/><ellipse cx="78" cy="16" rx="4.5" ry="7" transform="rotate(20 78 16)"/></g><g stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M26 24l10 16M74 24L64 40"/></g></svg></span><span class="t">DevBuddy</span></div>
     <nav>
       <div id="ksec">
         <div class="grp first"><button type="button" class="gt" data-gtoggle="k8s" title="Collapse / expand">▾</button><button type="button" class="gn" data-gopen="kconns" title="Overview of the Kubernetes clusters"><span class="gi"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.0 1.5 L20.2 5.5 L22.2 14.3 L16.6 21.5 L7.4 21.5 L1.8 14.3 L3.8 5.5z"/><circle cx="12" cy="12" r="4.6"/><path d="M12.0 10.4L12.0 5.4M13.3 11.0L17.2 7.9M13.6 12.4L18.4 13.5M12.7 13.4L14.9 17.9M11.3 13.4L9.1 17.9M10.4 12.4L5.6 13.5M10.7 11.0L6.8 7.9"/></svg></span>Kubernetes</button><span class="pill" id="kpill">…</span></div>
@@ -31,7 +31,7 @@
     </nav>
     <button type="button" id="discall" class="discall" hidden title="Disconnect every connection (Kubernetes, Redis, Elasticsearch)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M6.4 6.4a8 8 0 1 0 11.2 0"/></svg><span>Disconnect all</span></button>
     <div class="side-foot">
-      <div><span class="t">Cluster</span><div id="ctx" style="word-break:break-all">…</div><span id="prod" class="pill bad" hidden>production</span></div>
+      <div><span id="prod" class="pill bad" hidden title="The active Kubernetes connection looks like production">production</span></div>
       <label class="f"><span class="t">Theme</span><select id="theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     </div>
   </aside>
@@ -47,9 +47,10 @@
 
     <div id="knotice" class="card knotice" hidden><b>Kubernetes is not connected.</b> <span id="knoticetext"></span> <button type="button" id="knoticego" class="sm">Open Clusters</button></div>
 
-    <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button></div>
+    <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button><button type="button" id="rexport" hidden></button><span id="refreshctl" class="refreshctl" hidden><button type="button" id="refreshnow" class="icon" title="Refresh now"></button><label class="autorefresh" title="Reload the open page every few seconds (refresh_seconds in the config)"><input type="checkbox" id="autorefresh"> Auto refresh</label></span></div>
 
     <section id="namespacesView">
+      <div class="bar" style="margin-bottom:10px"><button type="button" id="nscreate" class="primary" hidden></button></div>
       <div class="card"><table>
         <thead><tr><th>Name</th><th>Status</th><th>Age</th><th></th></tr></thead>
         <tbody id="nsrows"></tbody>
@@ -58,7 +59,7 @@
 
     <section id="servicesView" hidden>
       <div class="card"><table>
-        <thead><tr><th>Name</th><th>Namespace</th><th>Type</th><th>Cluster IP</th><th>External IP</th><th>Ports</th><th>Age</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Namespace</th><th>Type</th><th>Cluster IP</th><th>Ports</th><th>Age</th><th></th></tr></thead>
         <tbody id="svcrows"></tbody>
       </table></div>
     </section>
@@ -79,7 +80,7 @@
 
     <section id="podsView" hidden>
       <div class="card"><table>
-        <thead><tr><th>Name</th><th>Namespace</th><th>Ready</th><th>Status</th><th>Images</th><th class="num">Restarts</th><th>Age</th><th>Owner</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Namespace</th><th>Ready</th><th>Status</th><th class="num">Restarts</th><th class="num m">CPU</th><th class="num m">Memory</th><th>Age</th><th>Owner</th><th></th></tr></thead>
         <tbody id="pods"></tbody>
       </table></div>
     </section>
@@ -122,7 +123,7 @@
             <thead><tr><th class="cb"><input type="checkbox" id="esall" title="Select all shown"></th><th class="w-esid"><input id="esq" placeholder="Search documents: user:alice AND status:active (Lucene), or plain words" autocomplete="off"></th><th class="w-esidx">Index</th><th>Preview</th><th class="num w-score">Score</th><th class="w-act4"></th></tr></thead>
             <tbody id="esrows"></tbody>
           </table></div>
-          <div class="bar" style="margin-top:10px"><button type="button" id="esmore" hidden>Load more</button><button type="button" id="esdelsel" class="danger" hidden>Delete selected</button><span class="t" id="esnote"></span></div>
+          <div class="bar" style="margin-top:10px"><button type="button" id="esmore" hidden>Load more</button><button type="button" id="esdelsel" class="danger" hidden>Delete selected</button><button type="button" id="esexpjson" hidden></button><button type="button" id="esexpcsv" hidden></button><span class="t" id="esnote"></span></div>
         </div>
         <div id="esidx" hidden>
           <div class="card"><table>
@@ -160,7 +161,7 @@
 
 <dialog id="logdetail" class="dlg"><div class="head"><strong id="ldtitle"></strong><button type="button" id="ldcopy"></button><button type="button" id="ldclose"></button></div><div id="ldbody"></div></dialog>
 
-<dialog id="redisdlg" class="dlg"><div class="head"><strong id="rdtitle"></strong><button type="button" id="rdcopy"></button><button type="button" id="rdclose"></button></div><div id="rdbody"></div></dialog>
+<dialog id="redisdlg" class="dlg"><div class="head"><strong id="rdtitle"></strong><button type="button" id="rdedit" hidden></button><button type="button" id="rdcopy"></button><button type="button" id="rdclose"></button></div><div id="rdbody"></div></dialog>
 
 <dialog id="esdlg" class="dlg"><div class="head"><strong id="estitle"></strong><button type="button" id="escopy"></button><button type="button" id="esclose"></button></div><div id="esbody"></div></dialog>
 

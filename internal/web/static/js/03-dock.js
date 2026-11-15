@@ -153,6 +153,8 @@ function openLogs(p, container, kind = 'pods') {
       <details class="menu"><summary>⋯</summary><div class="menupanel">
         <label class="t"${opts.split('</option>').length > 2 ? '' : ' hidden'}>container <select class="c">${opts}</select></label>
         <label class="t">tail <input class="tail" type="number" value="${settings.log_tail}" min="0" style="width:80px"></label>
+        <label class="t">since <select class="since"><option value="">all</option><option value="300">5 min</option><option value="900">15 min</option><option value="3600">1 hour</option><option value="21600">6 hours</option><option value="86400">24 hours</option></select></label>
+        <label class="t">level <select class="lvl"><option value="">all</option><option value="warn">warn and error</option><option value="err">error only</option></select></label>
         <label class="t"><input class="ts" type="checkbox"> timestamps</label>
         <label class="t"><input class="prev" type="checkbox"> previous container</label>
         <button type="button" class="pause">Pause</button><button type="button" class="dl">Download</button>
@@ -163,7 +165,9 @@ function openLogs(p, container, kind = 'pods') {
       const box = $$('.logbox'), pauseBtn = $$('.pause');
       let es = null, paused = false, buf = [], lines = [], hits = [], cur = -1;
       const q = () => $$('.q').value.toLowerCase();
-      const isHit = (d) => q() && d._raw.toLowerCase().includes(q());
+      // the level filter hides lines below it (and lines with no recognizable level, such as stack traces)
+      const lvOk = (d) => { const v = $$('.lvl').value; return !v || d.classList.contains('lv-err') || (v === 'warn' && d.classList.contains('lv-warn')); };
+      const isHit = (d) => !d.hidden && q() && d._raw.toLowerCase().includes(q());
       const count = () => {
         $$('.cnt').textContent = q() ? `${cur >= 0 ? cur + 1 : 0}/${hits.length}` : '';
         $$('.up').hidden = $$('.down').hidden = !hits.length; // arrows only when there is something to jump to
@@ -196,6 +200,7 @@ function openLogs(p, container, kind = 'pods') {
       const append = (line) => {
         const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
         const d = renderLine(line);
+        d.hidden = !lvOk(d);
         box.append(d);
         if (fresh && d.getBoundingClientRect().bottom - fresh.getBoundingClientRect().bottom >= box.clientHeight * 0.3 - 20) {
           box.style.paddingBottom = ''; fresh = null; box.scrollTop = box.scrollHeight; // the view is full below the divider: follow the log again
@@ -217,7 +222,7 @@ function openLogs(p, container, kind = 'pods') {
         pending = marks.filter((m) => m.after !== '' || (box.append(dividerEl(m.time)), false));
         paused = false; buf = []; pauseBtn.textContent = 'Pause';
         const prm = new URLSearchParams({ container: $$('.c').value, tail: $$('.tail').value || 0, follow: 'true',
-          timestamps: $$('.ts').checked, previous: $$('.prev').checked });
+          timestamps: $$('.ts').checked, previous: $$('.prev').checked, since: $$('.since').value });
         prm.set('cluster', p.cluster);
         const e = es = new EventSource(`/api/${kind}/${p.namespace}/${p.name}/logs?${prm}`);
         e.onmessage = (m) => (paused ? buf.push(m.data) : append(m.data));
@@ -226,7 +231,8 @@ function openLogs(p, container, kind = 'pods') {
         e.addEventListener('error', (m) => { if (m.data) append('[error: ' + m.data + ']'); e.close(); });
         e.onerror = () => { if (!lines.length) append('[could not read logs]'); e.close(); };
       };
-      ['.c', '.tail', '.ts', '.prev'].forEach((s) => ($$(s).onchange = run));
+      ['.c', '.tail', '.ts', '.prev', '.since'].forEach((s) => ($$(s).onchange = run));
+      $$('.lvl').onchange = () => { lines.forEach((d) => (d.hidden = !lvOk(d))); refresh(); };
       box.ondblclick = (e) => {
         const d = e.target.closest('.line');
         if (d) { getSelection().removeAllRanges(); showLogDetail(d._raw); } // the double click also selected a word
@@ -281,7 +287,7 @@ async function openShell(p, container) {
       container = r?.c;
     }
     if (!container) return;
-    ktoast(p, p.namespace, `exec -it ${p.name} -c ${container} -- sh`);
+    ktoast(p.namespace, `exec -it ${p.name} -c ${container} -- sh`);
   }
   openTab('shell', p, {
     html: () => '<div class="term"></div>',
