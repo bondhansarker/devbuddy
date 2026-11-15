@@ -27,19 +27,20 @@ function closeTab(key) {
 $('tabs').addEventListener('click', (e) => {
   const tab = e.target.closest('.tab');
   if (!tab) return;
-  if (e.target.classList.contains('x')) closeTab(tab.dataset.key); else activate(tab.dataset.key);
+  if (e.target.classList.contains('x')) closeTab(tab.dataset.key); else { setMin(false); activate(tab.dataset.key); }
 });
 
 // openTab shows the existing tab for this pod and kind, or builds a new one (max one each per pod).
 function openTab(kind, p, build) {
   const key = `${kind}:${p.cluster}/${p.namespace}/${p.name}`;
+  setMin(false);
   if (tabs.has(key)) return activate(key);
   const tab = document.createElement('div');
   tab.className = 'tab';
   tab.dataset.key = key;
   tab.title = `${p.cluster} · ${p.namespace}/${p.name}`;
   const what = { logs: 'Logs', 'logs-deployments': 'Logs (deployment)', 'logs-services': 'Logs (service)', 'logs-jobs': 'Logs (job)' }[kind] || 'Shell';
-  tab.innerHTML = `<span>${what} · ${esc(p.name)}${clusters.length > 1 ? ` <span class="muted">(${esc(p.cluster)})</span>` : ''}</span><b class="x" title="Close">×</b>`;
+  tab.innerHTML = `<span class="tl">${what === 'Shell' ? ICONS.shell : ICONS.logs}${what} · ${esc(p.name)}${clusters.length > 1 ? ` <span class="muted">(${esc(p.cluster)})</span>` : ''}</span><b class="x" title="Close">×</b>`;
   const pane = document.createElement('div');
   pane.className = 'pane';
   const t = { tab, pane, stop() {}, fit: null };
@@ -277,6 +278,7 @@ function openShell(p, container) {
     container = p.containers[0];
     if (p.containers.length > 1) container = prompt(`Container of ${p.name} (${p.containers.join(', ')})`, container); // a pod with several containers: ask
     if (!container) return;
+    ktoast(p, p.namespace, `exec -it ${p.name} -c ${container} -- sh`);
   }
   openTab('shell', p, {
     html: () => '<div class="term"></div>',
@@ -333,6 +335,23 @@ function setFull(on) {
 }
 $('dock').addEventListener('click', (e) => { if (e.target.closest('.fs')) setFull(!isFull()); });
 $('dockmax').innerHTML = ICON_EXPAND;
+// minimize: only the tab bar stays; close: every tab goes (their shells end)
+const ICON_MIN = svg('M5 12h14'), ICON_RESTORE = svg('M6 15l6-6 6 6'), ICON_CLOSE = svg('M6 6l12 12M18 6L6 18');
+function setMin(on) {
+  if (on && isFull()) setFull(false);
+  $('dock').classList.toggle('min', on);
+  document.body.classList.toggle('docked-min', on);
+  $('dockmin').innerHTML = on ? ICON_RESTORE : ICON_MIN;
+  $('dockmin').title = on ? 'Restore' : 'Minimize';
+  if (!on) tabs.get(activeTab)?.fit?.();
+}
+$('dockmin').innerHTML = ICON_MIN; $('dockclose').innerHTML = ICON_CLOSE;
+$('dockmin').onclick = () => setMin(!$('dock').classList.contains('min'));
+$('dockclose').onclick = () => {
+  if (tabs.size > 1 && !confirm(`Close all ${tabs.size} tabs? Open shells end.`)) return;
+  [...tabs.keys()].forEach(closeTab);
+  setFull(false); setMin(false);
+};
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('dock').classList.contains('full') && !document.querySelector('dialog[open]')) setFull(false);
 });

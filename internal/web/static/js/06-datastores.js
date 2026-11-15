@@ -6,14 +6,14 @@
 const ds = {
   redis: {
     label: 'Redis', one: 'server', conns: [], state: {}, active: '', tab: 'keys', stash: {},
-    pages: [['keys', 'Keys', 'K'], ['console', 'Console', 'C']],
+    pages: [['keys', 'Keys'], ['console', 'Console']],
     list: 'rconns', detail: 'redis', sec: 'rsec', nav: 'rnav', pill: 'rpill', rows: 'rconnrows',
     ping: (n) => api(`/api/redis/${encodeURIComponent(n)}/dbs`),
     cell: (st) => `${pill('connected', 'ok')} <span class="muted">${st.info.dbs.length ? st.info.dbs.reduce((t, d) => t + d.keys, 0) + ' keys · ' : ''}${st.ms} ms</span>`,
   },
   es: {
     label: 'Elasticsearch', one: 'cluster', conns: [], state: {}, active: '', tab: 'docs', stash: {},
-    pages: [['docs', 'Documents', 'D'], ['indices', 'Indices', 'I'], ['query', 'Query', 'Q']],
+    pages: [['docs', 'Documents'], ['indices', 'Indices'], ['query', 'Query']],
     list: 'esconns', detail: 'es', sec: 'esec', nav: 'enav', pill: 'epill', rows: 'esconnrows',
     ping: (n) => api(`/api/es/${encodeURIComponent(n)}/info`),
     cell: (st) => `${st.info.health ? pill(st.info.health, st.info.health === 'green' ? 'ok' : st.info.health === 'red' ? 'bad' : '') : pill('connected', 'ok')} <span class="muted">${esc(st.info.flavor)} ${esc(st.info.version)} · cluster ${esc(st.info.cluster)} · ${st.ms} ms</span>`,
@@ -32,7 +32,7 @@ function initDs(kind, list) { // at boot: only the config is read, no server is 
 }
 function syncDsPill(kind) {
   const d = ds[kind], n = dsConnected(kind).length;
-  $(d.pill).textContent = n ? `${n} on` : 'off';
+  $(d.pill).textContent = ''; $(d.pill).title = n ? `${n} connected` : 'not connected'; // shown as a coloured dot
   $(d.pill).className = 'pill ' + (n ? 'ok' : '');
 }
 
@@ -43,10 +43,10 @@ function renderDsNav(kind) {
     const st = d.state[c.name], on = st.status === 'connected', busy = st.status === 'connecting';
     const closed = navClosed(`n:${kind}:${c.name}`);
     const head = `<div class="knh ${on ? 'on' : 'idle'}">
-      <button type="button" class="kname" data-dh="${kind}" data-dn="${esc(c.name)}" title="${esc(c.addr)}"><span class="chev" data-nodetoggle="n:${kind}:${esc(c.name)}">${on && !closed ? '▾' : '▸'}</span><span class="ico">${esc(c.name.slice(0, 1).toUpperCase())}</span><span class="lbl">${esc(c.name)}</span></button>
-      <button type="button" class="sw ${st.status}" role="switch" aria-checked="${on}" data-dstoggle="${kind}" data-dn="${esc(c.name)}" ${busy ? 'disabled' : ''} title="${on ? 'Connected: switch off to disconnect' : st.status === 'failed' ? 'Failed: ' + esc(st.error) : 'Switch on to connect'}"><i></i></button>
+      <button type="button" class="kname" data-dh="${kind}" data-dn="${esc(c.name)}" title="${esc(c.addr)}"><span class="lbl">${esc(c.name)}</span></button>
+      <button type="button" class="sw ${st.status}" role="switch" aria-checked="${on}" data-dstoggle="${kind}" data-dn="${esc(c.name)}" ${busy ? 'disabled' : ''} title="${on ? 'Connected: switch off to disconnect' : st.status === 'failed' ? 'Failed: ' + esc(st.error) : 'Switch on to connect'}"><i></i></button><span class="chev ${on && !closed ? 'up' : ''}" data-nodetoggle="n:${kind}:${esc(c.name)}">${ICONS.chev}</span>
     </div>`;
-    const kids = on ? d.pages.map(([t, label, letter]) => `<button type="button" class="kc" data-view="${d.detail}" data-ds="${kind}" data-dn="${esc(c.name)}" data-tab="${t}" title="${label}"><span class="ico">${letter}</span><span class="lbl">${label}</span></button>`).join('') : '';
+    const kids = on ? d.pages.map(([t, label]) => `<button type="button" class="kc" data-view="${d.detail}" data-ds="${kind}" data-dn="${esc(c.name)}" data-tab="${t}" title="${label}"><span class="ico">${ICONS[t]}</span><span class="lbl">${label}</span></button>`).join('') : '';
     return `<div class="kn ${on ? 'open' : ''}" data-dn="${esc(c.name)}">${head}${on ? `<div class="kids ${closed ? 'closed' : ''}">${kids}</div>` : ''}</div>`;
   }).join('');
   markNav();

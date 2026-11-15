@@ -168,6 +168,7 @@ async function runEsQuery() {
     let t = r.body;
     try { t = JSON.stringify(JSON.parse(t), null, 2); } catch {}
     out.textContent = `HTTP ${r.status}\n\n${t}`;
+    toast(`${essrv()}: ${$('esqm').value} ${$('esqp').value.trim()} → HTTP ${r.status}`);
   } catch (e) { out.textContent = `refused: ${e.message}`; }
 }
 $('esrun').onclick = runEsQuery;

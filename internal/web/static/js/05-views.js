@@ -10,7 +10,7 @@ function syncKubernetes() {
   const n = clusters.filter((c) => kstate[c.name]?.status === 'connected').length;
   kOk = !!ci && kstate[ci.name]?.status === 'connected';
   kWhy = 'No Kubernetes cluster is connected. Open Clusters and press Connect, or switch one on in the sidebar.';
-  $('kpill').textContent = n ? `${n} on` : 'off';
+  $('kpill').textContent = ''; $('kpill').title = n ? `${n} connected` : 'not connected'; // shown as a coloured dot
   $('kpill').className = 'pill ' + (n ? 'ok' : '');
   $('ctx').textContent = ci && kOk ? ci.name : 'not connected';
   $('ctx').title = ci ? ci.context : '';
@@ -33,15 +33,23 @@ function renderKNav() {
     const st = kstate[c.name], on = st.status === 'connected', busy = st.status === 'connecting';
     const closed = navClosed('n:k8s:' + c.name);
     const head = `<div class="knh ${on ? 'on' : 'idle'}">
-      <button type="button" class="kname" data-kh="${esc(c.name)}" title="${esc(c.context)}"><span class="chev" data-nodetoggle="n:k8s:${esc(c.name)}" data-r="k8s">${on && !closed ? '▾' : '▸'}</span><span class="ico">${esc(c.name.slice(0, 1).toUpperCase())}</span><span class="lbl">${esc(c.name)}</span></button>
-      <button type="button" class="sw ${st.status}" role="switch" aria-checked="${on}" data-toggle="${esc(c.name)}" ${busy ? 'disabled' : ''} title="${on ? 'Connected: switch off to disconnect' : st.status === 'failed' ? 'Failed: ' + esc(st.error) : 'Switch on to connect'}"><i></i></button>
+      <button type="button" class="kname" data-kh="${esc(c.name)}" title="${esc(c.context)}"><span class="lbl">${esc(c.name)}</span></button>
+      <button type="button" class="sw ${st.status}" role="switch" aria-checked="${on}" data-toggle="${esc(c.name)}" ${busy ? 'disabled' : ''} title="${on ? 'Connected: switch off to disconnect' : st.status === 'failed' ? 'Failed: ' + esc(st.error) : 'Switch on to connect'}"><i></i></button><span class="chev ${on && !closed ? 'up' : ''}" data-nodetoggle="n:k8s:${esc(c.name)}" data-r="k8s">${ICONS.chev}</span>
     </div>`;
-    const kids = on ? K_PAGES.map(([v, label, letter]) => `<button type="button" class="kc" data-view="${v}" data-kc="${esc(c.name)}" title="${label}"><span class="ico">${letter}</span><span class="lbl">${label}</span> <span class="n" data-badge="${v}">${kbadges[c.name]?.[v] ?? ''}</span></button>`).join('') : '';
+    const kids = on ? K_PAGES.map(([v, label]) => `<button type="button" class="kc" data-view="${v}" data-kc="${esc(c.name)}" title="${label}"><span class="ico">${ICONS[v]}</span><span class="lbl">${label}</span> <span class="n" data-badge="${v}">${kbadges[c.name]?.[v] ?? ''}</span></button>`).join('') : '';
     return `<div class="kn ${on ? 'open' : ''}" data-kc="${esc(c.name)}">${head}${on ? `<div class="kids ${closed ? 'closed' : ''}">${kids}</div>` : ''}</div>`;
   }).join('');
   markNav();
 }
+// the global button: shown while anything is connected, drops every connection
+const anyConnected = () => clusters.some((c) => kstate[c.name].status === 'connected') || ['redis', 'es'].some((k) => dsConnected(k).length);
+function syncDiscAll() { $('discall').hidden = !anyConnected(); }
+$('discall').onclick = () => {
+  clusters.filter((c) => kstate[c.name].status === 'connected').forEach((c) => disconnectK8s(c.name));
+  ['redis', 'es'].forEach((k) => dsConnected(k).forEach((c) => disconnectDs(k, c.name)));
+};
 function markNav() {
+  syncDiscAll();
   document.querySelectorAll('nav .gn').forEach((b) => b.classList.toggle('on', b.dataset.gopen === view));
   document.querySelectorAll('nav button[data-view]').forEach((b) => {
     let on = b.dataset.view === view;
@@ -184,7 +192,7 @@ function setNavClosed(key, closed) {
 }
 function applyGroups() {
   document.querySelectorAll('nav .gbody').forEach((b) => b.classList.toggle('closed', navClosed('g:' + b.dataset.gbody)));
-  document.querySelectorAll('nav .gt').forEach((b) => (b.textContent = navClosed('g:' + b.dataset.gtoggle) ? '▸' : '▾'));
+  document.querySelectorAll('nav .gt').forEach((b) => { b.innerHTML = ICONS.chev; b.classList.toggle('shut', navClosed('g:' + b.dataset.gtoggle)); });
 }
 document.querySelector('nav').addEventListener('click', async (e) => {
   const gt = e.target.closest('[data-gtoggle]');

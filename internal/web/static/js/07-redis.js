@@ -256,6 +256,7 @@ function makeShell(name) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abort.signal, body: JSON.stringify({ db: rdb(), command: cmd }),
       });
       out(r.output);
+      toast(`${name} db${rdb()}: ${cmd.length > 80 ? cmd.slice(0, 80) + '…' : cmd}`);
       if (/^(del|unlink|set|hset|flushdb|flushall|expire|rename|lpush|rpush|sadd|zadd)\b/i.test(cmd)) loadRedisKeys(true); // the key list changed
     } catch (err) { if (err.name !== 'AbortError') out('(refused) ' + err.message); }
     busy = false; abort = null;

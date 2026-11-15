@@ -32,9 +32,9 @@ async function forward(p, svc) {
       body: JSON.stringify({ cluster: p.cluster, namespace: p.namespace, pod: p.name, container_port: cp, local_port: lp }),
     });
     try { localStorage.setItem(FWDKEY, JSON.stringify({ ...fwdMemory(), [id]: { container_port: f.container_port, local_port: f.local_port, service_port: sp } })); } catch {}
-    toast(`forwarding localhost:${f.local_port} → ${p.name}:${f.container_port}`);
+    ktoast(p, p.namespace, `port-forward pod/${p.name} ${f.local_port}:${f.container_port}`, `Forwarding from 127.0.0.1:${f.local_port} -> ${f.container_port}`);
     loadForwards();
-  } catch (e) { toast(e.message); }
+  } catch (e) { ktoast(p, p.namespace, `port-forward pod/${p.name} ${lp || cp}:${cp}`, e.message); }
 }
 let forwards = [];
 async function loadForwards() {
@@ -53,6 +53,7 @@ function renderForwards() {
 $('fwrows').addEventListener('click', async (e) => {
   const b = e.target.closest('button');
   if (!b) return;
-  await api(`/api/forwards/${b.dataset.id}`, { method: 'DELETE' }).catch((x) => toast(x.message));
+  const f = forwards.find((x) => x.id === b.dataset.id);
+  await api(`/api/forwards/${b.dataset.id}`, { method: 'DELETE' }).then(() => f && toast(`# stopped port-forward localhost:${f.local_port} → ${f.namespace}/${f.pod}:${f.container_port}`), (x) => toast(x.message));
   loadForwards();
 });
