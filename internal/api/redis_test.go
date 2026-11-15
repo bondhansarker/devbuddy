@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 
@@ -140,3 +141,40 @@ func TestRedisConsoleReadOnly(t *testing.T) {
 }
 
 func strconvQuote(s string) string { b, _ := json.Marshal(s); return string(b) }
+
+func TestRedisEditAndExport(t *testing.T) {
+	mr, call := redisServer(t, false)
+	mr.Select(0) // redisServer leaves db 3 selected
+	mr.SetTTL("user:1", 100*time.Second)
+	if code, body := call("POST", "/api/redis/cache/set", `{"db":0,"key":"user:1","value":"carol"}`); code != 200 {
+		t.Fatalf("set: %d %s", code, body)
+	}
+	if v, _ := mr.Get("user:1"); v != "carol" || mr.TTL("user:1") != 100*time.Second {
+		t.Fatalf("value %q ttl %v (the ttl must be kept)", v, mr.TTL("user:1"))
+	}
+	if code, _ := call("POST", "/api/redis/cache/set", `{"db":0,"key":"profile","value":"x"}`); code != 400 {
+		t.Fatalf("editing a hash want 400, got %d", code)
+	}
+	if code, _ := call("POST", "/api/redis/cache/set", `{"db":0,"key":"nope","value":"x"}`); code != 404 {
+		t.Fatalf("missing key want 404, got %d", code)
+	}
+	code, body := call("POST", "/api/redis/cache/export", `{"db":0,"keys":["user:2","profile","queue","nope"]}`)
+	for _, want := range []string{`"value":"bob"`, `"city":"paris"`, `"value":["a","b"]`, `"error":"key not found"`} {
+		if code != 200 || !strings.Contains(body, want) {
+			t.Fatalf("export: %d %s (want %s)", code, body, want)
+		}
+	}
+	if code, _ := call("POST", "/api/redis/cache/export", `{"db":0,"keys":[]}`); code != 400 {
+		t.Fatalf("empty export want 400, got %d", code)
+	}
+}
+
+func TestRedisEditRefusedUnderReadOnlyButExportWorks(t *testing.T) {
+	_, call := redisServer(t, true)
+	if code, _ := call("POST", "/api/redis/cache/set", `{"db":0,"key":"user:1","value":"x"}`); code != 403 {
+		t.Errorf("set under read_only want 403, got %d", code)
+	}
+	if code, _ := call("POST", "/api/redis/cache/export", `{"db":0,"keys":["user:1"]}`); code != 200 {
+		t.Fatalf("export is a read: got %d", code)
+	}
+}

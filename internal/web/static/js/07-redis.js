@@ -31,7 +31,7 @@ function syncRedisBar() {
   $('rhead').hidden = !on; // connection name on top, the filters under it
   $('rdbdd').hidden = !on;
   $('search').hidden = on || view === 'es' || view === 'rconns' || view === 'esconns' || view === 'kconns'; // the key / document search lives in the table header
-  if (!on) $('rdelsel').hidden = true;
+  if (!on) $('rdelsel').hidden = $('rexport').hidden = true;
 }
 // the Redis page of the active connection: Keys or Console (the sidebar picks which)
 async function showRedis() {
@@ -92,6 +92,8 @@ function renderRedis() {
   $('rmore').hidden = !moreRedis();
   $('rall').hidden = ro;
   $('rdelsel').hidden = ro || rtab !== 'keys' || !rd.sel.size || view !== 'redis';
+  $('rexport').hidden = rtab !== 'keys' || view !== 'redis' || !rd.keys.length;
+  $('rexport').innerHTML = `${ICONS.download} Export`; $('rexport').title = rd.sel.size ? `Export the ${rd.sel.size} selected keys with their values as JSON` : 'Export the listed keys (up to 200) with their values as JSON';
   $('rdelsel').innerHTML = `${ICONS.trash} ${rd.sel.size}`; $('rdelsel').title = `Delete selected (${rd.sel.size})`;
   $('rall').checked = rd.keys.length > 0 && rd.sel.size === rd.keys.length;
 }
@@ -123,6 +125,20 @@ const confirmDelete = (items) => {
   const dbs = [...new Set(items.map((i) => `db${i.db}`))].join(', ');
   return askConfirm(items.length === 1 ? `Delete key ${items[0].key} from ${rsrv()} ${dbs}?` : `Delete ${items.length} keys from ${rsrv()} (${dbs})?`, { title: items.length === 1 ? 'Delete key' : 'Delete keys', ok: 'Delete', danger: true });
 };
+// export: the selected keys (else the listed ones, up to 200) with their values, as one JSON file
+$('rexport').onclick = async () => {
+  const items = (rd.sel.size ? rd.keys.filter((k) => rd.sel.has(rid(k))) : rd.keys).slice(0, 200);
+  if (!items.length) return;
+  try {
+    const out = [];
+    for (const db of new Set(items.map((i) => i.db))) {
+      const keys = items.filter((i) => i.db === db).map((i) => i.key);
+      out.push(...await api(`/api/redis/${encodeURIComponent(rsrv())}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ db, keys }) }));
+    }
+    download(`redis-${rsrv()}-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(deepParse(out), null, 2), 'application/json');
+    toast(`exported ${out.length} key${out.length === 1 ? '' : 's'}`);
+  } catch (e) { toast(e.message); }
+};
 $('rdelsel').onclick = async () => {
   const items = rd.keys.filter((k) => rd.sel.has(rid(k)));
   if (items.length && await confirmDelete(items)) await redisDelete(items).catch((e) => toast(e.message));
@@ -142,7 +158,7 @@ $('rrows').addEventListener('click', async (e) => {
   if (await confirmDelete([k])) await redisDelete([k]).catch((x) => toast(x.message));
 });
 
-async function openRedisKey(key, db) {
+async function openRedisKey(key, db, quiet) {
   let v;
   try { v = await api(`/api/redis/${encodeURIComponent(rsrv())}/key?${rq({ key }, db)}`); } catch (e) { return toast(e.message); }
   // the value as indented JSON: a hash is an object, a list / set an array, a zset {member, score} pairs, a stream {id, fields}
@@ -155,10 +171,27 @@ async function openRedisKey(key, db) {
   if (typeof value !== 'string' || /^[{[]/.test(value.trim())) { try { text = prettyJson(value); } catch { text = String(value); } }
   const body = `<pre>${esc(text)}</pre>`;
   const k = rq1(key), read = { string: `GET ${k}`, hash: `HSCAN ${k} 0 COUNT 500`, list: `LRANGE ${k} 0 499`, set: `SSCAN ${k} 0 COUNT 500`, zset: `ZRANGE ${k} 0 499 WITHSCORES`, stream: `XRANGE ${k} - + COUNT 500` }[v.type];
-  rtoast([rcli(db, `TYPE ${k}`), rcli(db, `TTL ${k}`), ...(read ? [rcli(db, read)] : [])]);
+  if (!quiet) rtoast([rcli(db, `TYPE ${k}`), rcli(db, `TTL ${k}`), ...(read ? [rcli(db, read)] : [])]);
   $('rdtitle').textContent = v.key;
   $('rdbody').innerHTML = `<p class="muted">${pill(v.type)} ${v.type === 'string' ? `${v.size} bytes` : `${v.size} elements`} · TTL ${v.ttl < 0 ? 'none' : fmtTtl(v.ttl)} · ${esc(rsrv())} db${db}
     ${v.truncated ? ' · <strong>truncated: only the first part is shown</strong>' : ''}${v.binary ? ' · not valid UTF-8, shown lossy' : ''}</p>${body}`;
+  const editable = v.type === 'string' && !v.truncated && !v.binary && !settings.read_only;
+  $('rdedit').hidden = !editable;
+  const changed = async () => { // show the new value in the modal
+    const nv = await api(`/api/redis/${encodeURIComponent(rsrv())}/key?${rq({ key }, db)}`);
+    const row = rd.keys.find((x) => x.key === key && x.db === db);
+    if (row) { row.ttl = nv.ttl; renderRedis(); }
+    await openRedisKey(key, db, true);
+  };
+  $('rdedit').onclick = async () => {
+    const a = await ask({ title: `Edit ${key}`, ok: 'Save', fields: [{ name: 'v', label: 'Value (the TTL is kept)', type: 'textarea', rows: 12, value: v.string }] });
+    if (!a) return;
+    try {
+      await api(`/api/redis/${encodeURIComponent(rsrv())}/set`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ db, key, value: a.v }) });
+      rtoast([rcli(db, `SET ${rq1(key)} ${rq1(a.v.length > 60 ? a.v.slice(0, 60) + '…' : a.v)} KEEPTTL`)], 'OK');
+      await changed();
+    } catch (e) { toast(e.message); }
+  };
   $('rdcopy').onclick = () => navigator.clipboard.writeText(text).then(() => toast('copied'), () => toast('copy failed'));
   $('redisdlg').showModal();
 }

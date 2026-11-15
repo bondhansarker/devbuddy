@@ -339,3 +339,91 @@ func (m *Manager) Del(ctx context.Context, name string, db int, keys []string) (
 	}
 	return c.Unlink(ctx, keys...).Result()
 }
+
+// SetString replaces the value of an existing string key and keeps its TTL. Other types are not editable here.
+func (m *Manager) SetString(ctx context.Context, name string, db int, key, value string) error {
+	c, err := m.client(name, db)
+	if err != nil {
+		return err
+	}
+	if len(value) > maxString {
+		return fmt.Errorf("%w: value is over %d bytes", ErrBadArg, maxString)
+	}
+	typ, err := c.Type(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	switch typ {
+	case "none":
+		return ErrNotFound
+	case "string":
+	default:
+		return fmt.Errorf("%w: only string keys can be edited, this one is a %s", ErrBadArg, typ)
+	}
+	return c.Set(ctx, key, value, goredis.KeepTTL).Err()
+}
+
+const maxExport = 200 // keys per export call
+
+// ExportItem is one key with its whole (capped) value as plain JSON.
+type ExportItem struct {
+	DB        int    `json:"db"`
+	Key       string `json:"key"`
+	Type      string `json:"type,omitempty"`
+	TTL       int64  `json:"ttl"`
+	Truncated bool   `json:"truncated,omitempty"`
+	Value     any    `json:"value,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// Export reads several keys (of any type) for download.
+func (m *Manager) Export(ctx context.Context, name string, db int, keys []string) ([]ExportItem, error) {
+	if len(keys) == 0 || len(keys) > maxExport {
+		return nil, fmt.Errorf("%w: give between 1 and %d keys", ErrBadArg, maxExport)
+	}
+	out := make([]ExportItem, 0, len(keys))
+	for _, k := range keys {
+		v, err := m.Get(ctx, name, db, k)
+		if err != nil {
+			if errors.Is(err, ErrUnknown) || errors.Is(err, ErrDB) {
+				return nil, err
+			}
+			out = append(out, ExportItem{DB: db, Key: k, TTL: -1, Error: err.Error()})
+			continue
+		}
+		out = append(out, ExportItem{DB: db, Key: v.Key, Type: v.Type, TTL: v.TTL, Truncated: v.Truncated, Value: v.plain()})
+	}
+	return out, nil
+}
+
+// plain turns a value into what reads naturally as JSON: a hash is an object, a list or set an array.
+func (v Value) plain() any {
+	switch v.Type {
+	case "string":
+		return v.String
+	case "hash":
+		o := map[string]string{}
+		for _, i := range v.Items {
+			o[i.K] = i.V
+		}
+		return o
+	case "zset":
+		l := make([]map[string]any, 0, len(v.Items))
+		for _, i := range v.Items {
+			s, _ := strconv.ParseFloat(i.K, 64)
+			l = append(l, map[string]any{"member": i.V, "score": s})
+		}
+		return l
+	case "stream":
+		l := make([]map[string]string, 0, len(v.Items))
+		for _, i := range v.Items {
+			l = append(l, map[string]string{"id": i.K, "fields": i.V})
+		}
+		return l
+	}
+	l := make([]string, 0, len(v.Items))
+	for _, i := range v.Items {
+		l = append(l, i.V)
+	}
+	return l
+}

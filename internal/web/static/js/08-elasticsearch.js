@@ -72,7 +72,7 @@ $('esidxrows').addEventListener('click', async (e) => {
   if (!b) return;
   if (b.dataset.a === 'docs') { esSel.set([b.dataset.i]); return setEsTab('docs'); }
   etoast(`GET /${eidx(b.dataset.i)}/_mapping`);
-  try { showEsDialog(`${b.dataset.i} mapping`, await api(esUrl('mapping', { index: b.dataset.i }))); } catch (err) { toast(err.message); }
+  try { showJsonDialog(`${b.dataset.i} mapping`, await api(esUrl('mapping', { index: b.dataset.i }))); } catch (err) { toast(err.message); }
 });
 
 // documents: Lucene query_string search, 50 per page, "Load more" pages on
@@ -110,11 +110,29 @@ function renderEsDocs() {
   $('esmore').hidden = !more;
   $('esall').hidden = ro;
   $('esall').checked = es.hits.length > 0 && es.sel.size === es.hits.length;
+  $('esexpjson').hidden = $('esexpcsv').hidden = !es.hits.length;
+  $('esexpjson').innerHTML = `${ICONS.download} JSON`; $('esexpcsv').innerHTML = `${ICONS.download} CSV`;
+  $('esexpjson').title = $('esexpcsv').title = `Download the ${es.hits.length} loaded documents`;
   $('esdelsel').hidden = ro || !es.sel.size;
   $('esdelsel').innerHTML = `${ICONS.trash} ${es.sel.size}`; $('esdelsel').title = `Delete selected (${es.sel.size})`;
   $('esnote').textContent = es.total || es.hits.length ? `${es.relation === 'gte' ? '≥ ' : ''}${es.total.toLocaleString()} hits${es.took != null ? ` in ${es.took} ms` : ''} · showing ${es.hits.length}${es.hits.length >= 10000 && es.total > 10000 ? ' (Elasticsearch shows the first 10,000: narrow the search)' : ''}` : '';
 }
 $('esmore').onclick = () => loadEsDocs(false);
+// export what is loaded (the selected documents when some are ticked)
+const esExportRows = () => (es.sel.size ? es.hits.filter((h) => es.sel.has(esid(h))) : es.hits);
+const stamp = () => `${essrv()}-${new Date().toISOString().slice(0, 10)}`;
+$('esexpjson').onclick = () => {
+  const l = esExportRows();
+  download(`es-${stamp()}.json`, JSON.stringify(l.map((h) => ({ _index: h.index, _id: h.id, _score: h.score, _source: h.source })), null, 2), 'application/json');
+  toast(`exported ${l.length} documents`);
+};
+$('esexpcsv').onclick = () => {
+  const l = esExportRows(), cols = [...new Set(l.flatMap((h) => Object.keys(h.source || {})))];
+  const cell = (v) => { const t = v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v); return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const rows = [['_index', '_id', ...cols], ...l.map((h) => [h.index, h.id, ...cols.map((c) => (h.source || {})[c])])];
+  download(`es-${stamp()}.csv`, rows.map((r) => r.map(cell).join(',')).join('\n') + '\n', 'text/csv');
+  toast(`exported ${l.length} documents`);
+};
 $('esall').onchange = () => { es.sel = $('esall').checked ? new Set(es.hits.map(esid)) : new Set(); renderEsDocs(); };
 $('esrows').addEventListener('change', (e) => {
   const c = e.target.closest('input[data-c]');
@@ -129,7 +147,7 @@ $('esrows').addEventListener('click', async (e) => {
   const h = es.hits[b.dataset.i];
   if (b.dataset.a === 'del') return deleteEsDocs([h]);
   etoast(`GET /${eidx(h.index)}/_doc/${encodeURIComponent(h.id)}`);
-  try { showEsDialog(`${h.index} / ${h.id}`, await api(esUrl('doc', { index: h.index, id: h.id })), h); } catch (err) { toast(err.message); }
+  try { showJsonDialog(`${h.index} / ${h.id}`, await api(esUrl('doc', { index: h.index, id: h.id }))); } catch (err) { toast(err.message); }
 });
 $('esdelsel').onclick = () => deleteEsDocs(es.hits.filter((h) => es.sel.has(esid(h))));
 
@@ -152,7 +170,7 @@ async function deleteEsDocs(docs) {
     return !r.failed.length;
   } catch (err) { toast(err.message); return false; }
 }
-function showEsDialog(title, obj, doc) {
+function showJsonDialog(title, obj) {
   const text = prettyJson(obj);
   $('estitle').textContent = title;
   $('esbody').innerHTML = `<pre>${esc(text)}</pre>`;

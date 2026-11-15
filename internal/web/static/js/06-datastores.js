@@ -76,7 +76,6 @@ function renderDsConns(kind) {
   const name = b.closest('tr').dataset.n;
   if (b.dataset.a === 'disconnect') return disconnectDs(kind, name);
   if (b.dataset.a === 'connect') return toggleDs(kind, name);
-  await openDs(kind, name, b.dataset.a); // one of its pages
 }));
 
 async function connectDs(kind, name) { // the only place that contacts a server before you use it

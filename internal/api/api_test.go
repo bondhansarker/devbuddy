@@ -158,7 +158,7 @@ func TestHostHeaderGuard(t *testing.T) {
 	if w.Code != 403 {
 		t.Errorf("rebinding request want 403, got %d", w.Code)
 	}
-	// bound to the network on purpose (--insecure-bind): any Host is fine
+	// the guard only applies to a loopback listener; main refuses anything else
 	open := newServer(config.Config{Addr: "0.0.0.0:9100", RefreshSeconds: 5, LogTail: 200})
 	r = httptest.NewRequest("GET", "/api/namespaces", nil)
 	r.Host = "192.168.1.5:9100"
@@ -166,5 +166,78 @@ func TestHostHeaderGuard(t *testing.T) {
 	open.ServeHTTP(w, r)
 	if w.Code != 200 {
 		t.Errorf("non-loopback bind want 200, got %d", w.Code)
+	}
+}
+
+func post(h http.Handler, path, body string) *httptest.ResponseRecorder {
+	r := httptest.NewRequest("POST", path, strings.NewReader(body))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
+}
+
+func TestDescribePodAndMetricsRoutes(t *testing.T) {
+	h := newTestServer()
+	w := do(h, "GET", "/api/pods/default/web/describe", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"name":"web"`) || !strings.Contains(w.Body.String(), `"containers"`) {
+		t.Fatalf("describe: %d %s", w.Code, w.Body)
+	}
+	if w := do(h, "GET", "/api/pods/default/nope/describe", ""); w.Code != 404 {
+		t.Fatalf("missing pod want 404, got %d", w.Code)
+	}
+	if w := do(h, "GET", "/api/pods/metrics", ""); w.Code != 404 { // the fake cluster has no metrics-server
+		t.Fatalf("metrics without metrics-server want 404, got %d", w.Code)
+	}
+}
+
+func TestScaleAndRestartDeploymentRoutes(t *testing.T) {
+	h := newTestServer()
+	if w := post(h, "/api/deployments/default/web/scale", `{"replicas":3}`); w.Code != 200 {
+		t.Fatalf("scale: %d %s", w.Code, w.Body)
+	}
+	for _, bad := range []string{``, `{}`, `{"replicas":-1}`, `{"replicas":99999}`, `nope`} {
+		if w := post(h, "/api/deployments/default/web/scale", bad); w.Code != 400 {
+			t.Errorf("body %q want 400, got %d", bad, w.Code)
+		}
+	}
+	if w := post(h, "/api/deployments/default/web/restart", ``); w.Code != 200 {
+		t.Fatalf("restart: %d %s", w.Code, w.Body)
+	}
+	if w := do(h, "GET", "/api/deployments?namespace=default", ""); !strings.Contains(w.Body.String(), `"replicas":3`) {
+		t.Fatalf("list shows the new replicas: %s", w.Body)
+	}
+	ro := newServer(config.Config{ReadOnly: true})
+	for _, p := range []string{"/api/deployments/default/web/scale", "/api/deployments/default/web/restart"} {
+		if w := post(ro, p, `{"replicas":1}`); w.Code != 403 {
+			t.Errorf("%s read_only want 403, got %d", p, w.Code)
+		}
+	}
+}
+
+func TestCreateAndDeleteNamespaceRoutes(t *testing.T) {
+	h := newTestServer()
+	if w := post(h, "/api/namespaces", `{"name":"team-a"}`); w.Code != 200 {
+		t.Fatalf("create: %d %s", w.Code, w.Body)
+	}
+	if w := do(h, "GET", "/api/namespaces", ""); !strings.Contains(w.Body.String(), `"name":"team-a"`) {
+		t.Fatalf("not listed: %s", w.Body)
+	}
+	for _, bad := range []string{``, `{}`, `{"name":"Bad_Name"}`} {
+		if w := post(h, "/api/namespaces", bad); w.Code != 400 {
+			t.Errorf("body %q want 400, got %d", bad, w.Code)
+		}
+	}
+	if w := do(h, "DELETE", "/api/namespaces/kube-system", ""); w.Code != 400 {
+		t.Fatalf("protected want 400, got %d", w.Code)
+	}
+	if w := do(h, "DELETE", "/api/namespaces/team-a", ""); w.Code != 200 {
+		t.Fatalf("delete: %d %s", w.Code, w.Body)
+	}
+	ro := newServer(config.Config{ReadOnly: true})
+	if w := post(ro, "/api/namespaces", `{"name":"x"}`); w.Code != 403 {
+		t.Errorf("create under read_only want 403, got %d", w.Code)
+	}
+	if w := do(ro, "DELETE", "/api/namespaces/team-a", ""); w.Code != 403 {
+		t.Errorf("delete under read_only want 403, got %d", w.Code)
 	}
 }

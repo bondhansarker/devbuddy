@@ -56,8 +56,14 @@ func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
 	mux.HandleFunc("GET /api/info", s.info)
 	mux.HandleFunc("GET /api/kubernetes/ping", s.ping)
 	mux.HandleFunc("GET /api/namespaces", s.namespaces)
+	mux.HandleFunc("POST /api/namespaces", s.createNamespace)
+	mux.HandleFunc("DELETE /api/namespaces/{name}", s.deleteNamespace)
 	// ?namespace= narrows to one namespace; without it these list every namespace.
 	mux.HandleFunc("GET /api/pods", s.pods)
+	mux.HandleFunc("GET /api/pods/metrics", s.podMetrics)
+	mux.HandleFunc("GET /api/pods/{ns}/{pod}/describe", s.describePod)
+	mux.HandleFunc("POST /api/deployments/{ns}/{name}/scale", s.scaleDeployment)
+	mux.HandleFunc("POST /api/deployments/{ns}/{name}/restart", s.restartDeployment)
 	mux.HandleFunc("GET /api/services", s.services)
 	mux.HandleFunc("GET /api/deployments", s.deployments)
 	mux.HandleFunc("GET /api/jobs", s.jobs)
@@ -78,6 +84,8 @@ func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
 	mux.HandleFunc("GET /api/redis/{name}/keys", s.redisKeys)
 	mux.HandleFunc("GET /api/redis/{name}/key", s.redisKey)
 	mux.HandleFunc("POST /api/redis/{name}/delete", s.redisDelete)
+	mux.HandleFunc("POST /api/redis/{name}/set", s.redisSet)
+	mux.HandleFunc("POST /api/redis/{name}/export", s.redisExport)
 	mux.HandleFunc("POST /api/redis/{name}/command", s.redisCommand)
 	mux.HandleFunc("GET /api/es", s.esList)
 	mux.HandleFunc("GET /api/es/{name}/info", s.esInfo)
@@ -93,7 +101,7 @@ func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
 	mux.Handle("/", http.FileServerFS(web))
 	h := sameOrigin(mux)
 	if loopbackAddr(cfg.Addr) {
-		h = loopbackHost(h) // not bound to the network (--insecure-bind): any Host is expected
+		h = loopbackHost(h) // the listener is loopback only (config.Validate); an unset Addr (tests) skips the check
 	}
 	return h
 }

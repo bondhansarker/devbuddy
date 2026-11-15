@@ -20,7 +20,8 @@ func (s *Server) logs(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	tail, _ := strconv.ParseInt(q.Get("tail"), 10, 64)
-	rc, err := k.Logs(r.Context(), r.PathValue("ns"), r.PathValue("pod"), q.Get("container"), tail, q.Get("follow") == "true", q.Get("timestamps") == "true", q.Get("previous") == "true")
+	since, _ := strconv.ParseInt(q.Get("since"), 10, 64)
+	rc, err := k.Logs(r.Context(), r.PathValue("ns"), r.PathValue("pod"), q.Get("container"), tail, since, q.Get("follow") == "true", q.Get("timestamps") == "true", q.Get("previous") == "true")
 	if err != nil {
 		kubeFail(w, err)
 		return
@@ -64,6 +65,7 @@ func (s *Server) workloadLogs(kind string) http.HandlerFunc {
 		}
 		q := r.URL.Query()
 		tail, _ := strconv.ParseInt(q.Get("tail"), 10, 64)
+		since, _ := strconv.ParseInt(q.Get("since"), 10, 64)
 		follow, ts, prev := q.Get("follow") == "true", q.Get("timestamps") == "true", q.Get("previous") == "true"
 		ns, name, want := r.PathValue("ns"), r.PathValue("name"), q.Get("container")
 		pods, err := k.PodsOf(r.Context(), kind, ns, name)
@@ -121,7 +123,7 @@ func (s *Server) workloadLogs(kind string) http.HandlerFunc {
 			wg.Add(1)
 			go func(c src) {
 				defer wg.Done()
-				rc, err := k.Logs(ctx, ns, c.pod, c.container, tail, follow, ts, prev)
+				rc, err := k.Logs(ctx, ns, c.pod, c.container, tail, since, follow, ts, prev)
 				if err != nil {
 					send("[" + c.label + "] [error: " + err.Error() + "]")
 					return

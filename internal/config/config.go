@@ -16,15 +16,12 @@ import (
 )
 
 type Config struct {
-	Addr string `json:"addr"` // listen address, loopback unless --insecure-bind
+	Addr string `json:"addr"` // listen address, must be loopback (localhost or 127.0.0.1)
 	// Kubernetes connections (optional: with none, the Kubernetes pages show "not connected").
-	Kubernetes []Kubernetes `json:"kubernetes"`
-	// Deprecated, still accepted: a single connection written as two top-level keys.
-	Kubeconfig     string `json:"kubeconfig"`
-	Context        string `json:"context"`
-	RefreshSeconds int    `json:"refresh_seconds"` // how often the open view reloads
-	LogTail        int    `json:"log_tail"`        // lines the log viewer starts with
-	ReadOnly       bool   `json:"read_only"`       // no shell, restart or port-forward start
+	Kubernetes     []Kubernetes `json:"kubernetes"`
+	RefreshSeconds int          `json:"refresh_seconds"` // how often the open view reloads
+	LogTail        int          `json:"log_tail"`        // lines the log viewer starts with
+	ReadOnly       bool         `json:"read_only"`       // no shell, restart or port-forward start
 
 	// Optional, the only key that may be left out: Redis servers for the Redis page. The app connects
 	// straight to each addr, so it must be reachable from this machine. Passwords live here, in the
@@ -95,22 +92,19 @@ func Load(path string) (Config, string, error) {
 	if err := dec.Decode(&c); err != nil {
 		return c, path, fmt.Errorf("%s: %w", path, err)
 	}
-	c.Kubeconfig = expandHome(c.Kubeconfig)
 	for i := range c.Kubernetes {
 		c.Kubernetes[i].Kubeconfig = expandHome(c.Kubernetes[i].Kubeconfig)
-	}
-	if len(c.Kubernetes) == 0 && c.Kubeconfig != "" && c.Context != "" { // the old two-key form is one connection
-		c.Kubernetes = []Kubernetes{{Name: c.Context, Kubeconfig: c.Kubeconfig, Context: c.Context}}
 	}
 	return c, path, c.Validate()
 }
 
 func (c Config) Validate() error {
-	if _, _, err := net.SplitHostPort(c.Addr); err != nil {
+	host, _, err := net.SplitHostPort(c.Addr)
+	if err != nil {
 		return fmt.Errorf("addr: %w", err)
 	}
-	if (c.Kubeconfig == "") != (c.Context == "") {
-		return errors.New("kubeconfig and context go together: set both, or use the kubernetes list")
+	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		return fmt.Errorf("addr %q: only localhost or a loopback address is allowed (a shell here is cluster access and there is no login)", c.Addr)
 	}
 	seenK := map[string]bool{}
 	for i, k := range c.Kubernetes {

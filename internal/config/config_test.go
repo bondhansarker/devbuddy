@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const full = `{"addr":"127.0.0.1:7777","kubeconfig":"~/.kube/config","context":"dev","refresh_seconds":5,"log_tail":200,"read_only":true}`
+const full = `{"addr":"127.0.0.1:7777","refresh_seconds":5,"log_tail":200,"read_only":true}`
 
 func write(t *testing.T, body string) string {
 	p := filepath.Join(t.TempDir(), "c.json")
@@ -19,8 +19,7 @@ func write(t *testing.T, body string) string {
 
 func TestLoadFullConfig(t *testing.T) {
 	c, _, err := Load(write(t, full))
-	home, _ := os.UserHomeDir()
-	if err != nil || c.Addr != "127.0.0.1:7777" || !c.ReadOnly || c.Context != "dev" || c.Kubeconfig != filepath.Join(home, ".kube/config") {
+	if err != nil || c.Addr != "127.0.0.1:7777" || !c.ReadOnly || len(c.Kubernetes) != 0 {
 		t.Fatalf("%+v %v", c, err)
 	}
 }
@@ -49,7 +48,9 @@ func TestLoadRejectsTypoAndBadValues(t *testing.T) {
 		strings.Replace(full, `"refresh_seconds":5`, `"refresh_seconds":0`, 1),
 		strings.Replace(full, `127.0.0.1:7777`, `nope`, 1),
 		strings.Replace(full, `"log_tail":200`, `"log_tail":-1`, 1),
-		strings.Replace(full, `"context":"dev"`, `"context":""`, 1),
+		strings.Replace(full, `127.0.0.1:7777`, `0.0.0.0:7777`, 1), // not loopback
+		strings.Replace(full, `127.0.0.1:7777`, `192.168.1.5:7777`, 1),
+		strings.Replace(full, `}`, `,"kubeconfig":"~/.kube/config","context":"dev"}`, 1), // the old single-cluster keys are gone
 		strings.Replace(full, `}`, `,"extra":1}`, 1),
 	} {
 		if _, _, err := Load(write(t, body)); err == nil {
@@ -65,7 +66,7 @@ func TestLoadMissingFileFails(t *testing.T) {
 }
 
 func TestRedisEntriesAreCheckedAndOptional(t *testing.T) {
-	base := Config{Addr: "127.0.0.1:9100", Kubeconfig: "k", Context: "c", RefreshSeconds: 5}
+	base := Config{Addr: "127.0.0.1:9100", RefreshSeconds: 5}
 	if err := base.Validate(); err != nil {
 		t.Fatalf("no redis servers must be fine: %v", err)
 	}
@@ -99,10 +100,6 @@ func TestKubernetesConnections(t *testing.T) {
 	none := `{"addr":"127.0.0.1:7777","refresh_seconds":5,"log_tail":200,"read_only":false}`
 	if c, _, err := Load(write(t, none)); err != nil || len(c.Kubernetes) != 0 {
 		t.Fatalf("%+v %v", c.Kubernetes, err)
-	}
-	// the old two-key form becomes one connection named after the context
-	if c, _, err := Load(write(t, full)); err != nil || len(c.Kubernetes) != 1 || c.Kubernetes[0].Name != "dev" {
-		t.Fatalf("legacy: %+v %v", c.Kubernetes, err)
 	}
 	for name, body := range map[string]string{
 		"duplicate name": strings.Replace(multi, `"name":"prod"`, `"name":"dev"`, 1),

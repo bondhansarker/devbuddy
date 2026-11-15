@@ -40,9 +40,9 @@ async function forward(p, svc) {
       body: JSON.stringify({ cluster: p.cluster, namespace: p.namespace, pod: p.name, container_port: cp, local_port: lp }),
     });
     try { localStorage.setItem(FWDKEY, JSON.stringify({ ...fwdMemory(), [id]: { container_port: f.container_port, local_port: f.local_port, service_port: sp } })); } catch {}
-    ktoast(p, p.namespace, `port-forward pod/${p.name} ${f.local_port}:${f.container_port}`, `Forwarding from 127.0.0.1:${f.local_port} -> ${f.container_port}`);
+    ktoast(p.namespace, `port-forward pod/${p.name} ${f.local_port}:${f.container_port}`, `Forwarding from 127.0.0.1:${f.local_port} -> ${f.container_port}`);
     loadForwards();
-  } catch (e) { ktoast(p, p.namespace, `port-forward pod/${p.name} ${lp || cp}:${cp}`, e.message); }
+  } catch (e) { ktoast(p.namespace, `port-forward pod/${p.name} ${lp || cp}:${cp}`, e.message); }
 }
 let forwards = [];
 async function loadForwards() {
@@ -56,12 +56,12 @@ function renderForwards() {
     <td><a href="http://localhost:${f.local_port}" target="_blank" rel="noopener" style="color:var(--accent)">localhost:${f.local_port}</a></td>
     <td>→ ${clusters.length > 1 ? esc(f.cluster) + ' · ' : ''}${esc(f.namespace)}/${esc(f.pod)}:${f.container_port}</td>
     <td class="muted">${esc(f.error || '')}</td>
-    <td class="actions">${ab('stop', 'Stop', `data-id="${esc(f.id)}"`, 'danger', true)}</td></tr>`).join('');
+    <td class="actions">${ab('power', 'Disconnect', `data-id="${esc(f.id)}"`, 'danger', true)}</td></tr>`).join('');
 }
 $('fwrows').addEventListener('click', async (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   const f = forwards.find((x) => x.id === b.dataset.id);
-  await api(`/api/forwards/${b.dataset.id}`, { method: 'DELETE' }).then(() => f && toast(`# stopped port-forward localhost:${f.local_port} → ${f.namespace}/${f.pod}:${f.container_port}`), (x) => toast(x.message));
+  await api(`/api/forwards/${b.dataset.id}`, { method: 'DELETE' }).then(() => f && toast(`# disconnected port-forward localhost:${f.local_port} → ${f.namespace}/${f.pod}:${f.container_port}`), (x) => toast(x.message));
   loadForwards();
 });

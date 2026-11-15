@@ -144,8 +144,12 @@ func age(t time.Time) string {
 
 // Logs streams a container's log; the caller closes it.
 // previous reads the last terminated container (the API refuses it together with follow).
-func (c *Client) Logs(ctx context.Context, ns, pod, container string, tail int64, follow, timestamps, previous bool) (io.ReadCloser, error) {
+// since > 0 limits it to the last that many seconds.
+func (c *Client) Logs(ctx context.Context, ns, pod, container string, tail, since int64, follow, timestamps, previous bool) (io.ReadCloser, error) {
 	o := &corev1.PodLogOptions{Container: container, Follow: follow && !previous, Timestamps: timestamps, Previous: previous}
+	if since > 0 {
+		o.SinceSeconds = &since
+	}
 	if tail > 0 {
 		o.TailLines = &tail
 	}
