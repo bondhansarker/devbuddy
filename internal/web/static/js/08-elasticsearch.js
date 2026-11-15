@@ -45,6 +45,9 @@ function setEsTab(t) {
 }
 document.querySelector('#esdetail .rtabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-t]'); if (b) setEsTab(b.dataset.t); });
 
+// every action shows the REST call it is the same as, as a toast
+const etoast = (call, result) => toast(`$ ${call}${result ? '\n' + result : ''}`);
+const eidx = (s) => encodeURIComponent(s || '_all');
 async function loadEsIndices() {
   const name = essrv();
   try {
@@ -60,7 +63,7 @@ function renderEsIndices() {
   $('esidxrows').innerHTML = rows.length ? page('esidx', rows, f).map((i) => `<tr><td class="name" style="word-break:break-all">${esc(i.index)}</td>
       <td>${pill(i.health || '—', i.health === 'green' ? 'ok' : i.health === 'red' ? 'bad' : '')}</td><td>${esc(i.status)}</td>
       <td class="num">${i.docs.toLocaleString()}</td><td class="num">${fmtBytes(i.bytes)}</td><td>${esc(i.pri)}p / ${esc(i.rep)}r</td>
-      <td class="actions"><button type="button" class="sm" data-a="docs" data-i="${esc(i.index)}">Documents</button><button type="button" class="sm" data-a="map" data-i="${esc(i.index)}">Mapping</button></td></tr>`).join('') + moreRow('esidx', rows.length, 7)
+      <td class="actions">${ab('docs', 'Documents', `data-a="docs" data-i="${esc(i.index)}"`)}${ab('braces', 'Mapping', `data-a="map" data-i="${esc(i.index)}"`)}</td></tr>`).join('') + moreRow('esidx', rows.length, 7)
     : `<tr><td colspan="7" class="muted">${es.indices.length ? 'no index matches' : 'no indices'}</td></tr>`;
 }
 $('esidxfilter').oninput = renderEsIndices;
@@ -68,6 +71,7 @@ $('esidxrows').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-a]');
   if (!b) return;
   if (b.dataset.a === 'docs') { esSel.set([b.dataset.i]); return setEsTab('docs'); }
+  etoast(`GET /${eidx(b.dataset.i)}/_mapping`);
   try { showEsDialog(`${b.dataset.i} mapping`, await api(esUrl('mapping', { index: b.dataset.i }))); } catch (err) { toast(err.message); }
 });
 
@@ -86,6 +90,8 @@ const esPreview = (src) => {
 async function loadEsDocs(reset) {
   const gen = reset ? ++es.gen : es.gen;
   if (reset) { es.hits = []; es.total = 0; es.err = ''; es.sel.clear(); renderEsDocs(); }
+  const qs = $('esq').value.trim();
+  etoast(`GET /${esIndexParam() || '_all'}/_search?${qs ? 'q=' + encodeURIComponent(qs) + '&' : ''}from=${es.hits.length}&size=50`);
   try {
     const r = await api(esUrl('search', { index: esIndexParam(), q: $('esq').value.trim(), from: es.hits.length, size: 50 }));
     if (gen !== es.gen) return;
@@ -98,14 +104,14 @@ function renderEsDocs() {
   $('esrows').innerHTML = es.hits.length ? es.hits.map((h, i) => `<tr><td class="cb">${ro ? '' : `<input type="checkbox" data-c="${i}" ${es.sel.has(esid(h)) ? 'checked' : ''}>`}</td>
       <td class="name" style="word-break:break-all">${esc(h.id)}</td><td style="word-break:break-all">${esc(h.index)}</td>
       <td class="esprev">${esc(esPreview(h.source))}</td><td class="num">${h.score == null ? '—' : h.score.toFixed(2)}</td>
-      <td class="actions"><button type="button" class="sm" data-a="view" data-i="${i}">View</button>${ro ? '' : `<button type="button" class="sm danger" data-a="del" data-i="${i}">Delete</button>`}</td></tr>`).join('')
+      <td class="actions">${ab('view', 'View', `data-a="view" data-i="${i}"`)}${ro ? '' : ab('trash', 'Delete', `data-a="del" data-i="${i}"`, 'danger')}</td></tr>`).join('')
     : `<tr><td colspan="6" class="muted">${es.err ? esc(es.err) : 'no documents match'}</td></tr>`;
   const more = es.hits.length < es.total && es.hits.length < 10000;
   $('esmore').hidden = !more;
   $('esall').hidden = ro;
   $('esall').checked = es.hits.length > 0 && es.sel.size === es.hits.length;
   $('esdelsel').hidden = ro || !es.sel.size;
-  $('esdelsel').textContent = `Delete selected (${es.sel.size})`;
+  $('esdelsel').innerHTML = `${ICONS.trash} ${es.sel.size}`; $('esdelsel').title = `Delete selected (${es.sel.size})`;
   $('esnote').textContent = es.total || es.hits.length ? `${es.relation === 'gte' ? '≥ ' : ''}${es.total.toLocaleString()} hits${es.took != null ? ` in ${es.took} ms` : ''} · showing ${es.hits.length}${es.hits.length >= 10000 && es.total > 10000 ? ' (Elasticsearch shows the first 10,000: narrow the search)' : ''}` : '';
 }
 $('esmore').onclick = () => loadEsDocs(false);
@@ -122,6 +128,7 @@ $('esrows').addEventListener('click', async (e) => {
   if (!b) return;
   const h = es.hits[b.dataset.i];
   if (b.dataset.a === 'del') return deleteEsDocs([h]);
+  etoast(`GET /${eidx(h.index)}/_doc/${encodeURIComponent(h.id)}`);
   try { showEsDialog(`${h.index} / ${h.id}`, await api(esUrl('doc', { index: h.index, id: h.id })), h); } catch (err) { toast(err.message); }
 });
 $('esdelsel').onclick = () => deleteEsDocs(es.hits.filter((h) => es.sel.has(esid(h))));
@@ -130,7 +137,7 @@ $('esdelsel').onclick = () => deleteEsDocs(es.hits.filter((h) => es.sel.has(esid
 async function deleteEsDocs(docs) {
   if (!docs.length) return false;
   const idx = [...new Set(docs.map((d) => d.index))].join(', ');
-  if (!confirm(docs.length === 1 ? `Delete document ${docs[0].id} from ${idx}?` : `Delete ${docs.length} documents (${idx}) from ${essrv()}?\n\nThis cannot be undone.`)) return false;
+  if (!await askConfirm(docs.length === 1 ? `Delete document ${docs[0].id} from ${idx}?` : `Delete ${docs.length} documents (${idx}) from ${essrv()}?\n\nThis cannot be undone.`, { title: docs.length === 1 ? 'Delete document' : 'Delete documents', ok: 'Delete', danger: true })) return false;
   try {
     const r = await api(`/api/es/${encodeURIComponent(essrv())}/delete`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: docs.map((d) => ({ index: d.index, id: d.id })) }),
@@ -141,17 +148,15 @@ async function deleteEsDocs(docs) {
     gone.forEach((id) => es.sel.delete(id));
     renderEsDocs();
     loadEsIndices().then(() => {}); // the doc counts changed
-    toast(`deleted ${r.deleted}${r.not_found ? `, ${r.not_found} were already gone` : ''}${r.failed.length ? `, ${r.failed.length} failed: ${r.failed[0].error}` : ''}`);
+    etoast(`POST /_bulk  ${docs.slice(0, 3).map((d) => JSON.stringify({ delete: { _index: d.index, _id: d.id } })).join(' ')}${docs.length > 3 ? ` … (+${docs.length - 3})` : ''}`, `deleted ${r.deleted}${r.not_found ? `, ${r.not_found} were already gone` : ''}${r.failed.length ? `, ${r.failed.length} failed: ${r.failed[0].error}` : ''}`);
     return !r.failed.length;
   } catch (err) { toast(err.message); return false; }
 }
 function showEsDialog(title, obj, doc) {
-  const text = JSON.stringify(obj, null, 2);
+  const text = prettyJson(obj);
   $('estitle').textContent = title;
   $('esbody').innerHTML = `<pre>${esc(text)}</pre>`;
   $('escopy').onclick = () => navigator.clipboard.writeText(text).then(() => toast('copied'), () => toast('copy failed'));
-  $('esdel').hidden = !doc || settings.read_only; // only a document can be deleted from here, not a mapping
-  $('esdel').onclick = async () => { if (await deleteEsDocs([doc])) $('esdlg').close(); };
   $('esdlg').showModal();
 }
 $('esclose').onclick = () => $('esdlg').close();
@@ -168,7 +173,7 @@ async function runEsQuery() {
     let t = r.body;
     try { t = JSON.stringify(JSON.parse(t), null, 2); } catch {}
     out.textContent = `HTTP ${r.status}\n\n${t}`;
-    toast(`${essrv()}: ${$('esqm').value} ${$('esqp').value.trim()} → HTTP ${r.status}`);
+    etoast(`${$('esqm').value} ${$('esqp').value.trim()}`, `HTTP ${r.status}`);
   } catch (e) { out.textContent = `refused: ${e.message}`; }
 }
 $('esrun').onclick = runEsQuery;

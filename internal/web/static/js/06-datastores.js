@@ -65,8 +65,8 @@ function renderDsConns(kind) {
   $(d.rows).innerHTML = d.conns.map((c) => {
     const st = d.state[c.name];
     const acts = st.status === 'connected'
-      ? `${d.pages.map(([t, label]) => `<button type="button" class="sm" data-a="${t}">${label}</button>`).join('')}<button type="button" class="sm" data-a="disconnect">Disconnect</button>`
-      : `<button type="button" class="sm" data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}>Connect</button>`;
+      ? `${d.pages.map(([t, label]) => ab(t, label, `data-a="${t}"`)).join('')}${ab('power', 'Disconnect', 'data-a="disconnect"')}`
+      : ab('plug', 'Connect', `data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}`);
     return `<tr data-n="${esc(c.name)}"><td class="name">${esc(c.name)}</td><td style="word-break:break-all">${esc(c.addr)}${c.tls ? ' ' + pill('tls') : ''}</td><td>${cell(c)}</td><td class="actions">${acts}</td></tr>`;
   }).join('');
 }

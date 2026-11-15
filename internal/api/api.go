@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -89,7 +91,42 @@ func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
 	mux.HandleFunc("POST /api/forwards", s.startForward)
 	mux.HandleFunc("DELETE /api/forwards/{id}", s.stopForward)
 	mux.Handle("/", http.FileServerFS(web))
-	return sameOrigin(mux)
+	h := sameOrigin(mux)
+	if loopbackAddr(cfg.Addr) {
+		h = loopbackHost(h) // not bound to the network (--insecure-bind): any Host is expected
+	}
+	return h
+}
+
+// loopbackAddr reports whether a listen address is localhost or a loopback IP.
+func loopbackAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	return err == nil && isLoopbackHost(host)
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// loopbackHost refuses a request whose Host header is not localhost or a loopback IP. Without it a
+// malicious site could use DNS rebinding (its own name resolving to 127.0.0.1) to pass the Origin
+// check and read or drive this API from the browser.
+func loopbackHost(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if !isLoopbackHost(strings.Trim(host, "[]")) {
+			fail(w, http.StatusForbidden, errors.New("unexpected Host header: open DevBuddy at http://localhost or http://127.0.0.1"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // sameOrigin refuses a browser request from another site (cross-site WebSocket

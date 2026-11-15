@@ -4,12 +4,12 @@
 // Logs, Shell and Forward of a deployment or service act on the pods it selects (shell and forward on one ready pod).
 const logsCell = (r) => {
   const k = esc(`${r.namespace}/${r.name}`);
-  return `<td class="actions"><button type="button" class="sm" data-w="logs" data-k="${k}">${ICONS.logs}Logs</button>${settings.read_only ? '' :
-    `<button type="button" class="sm" data-w="shell" data-k="${k}">${ICONS.shell}Shell</button><button type="button" class="sm" data-w="fwd" data-k="${k}">${ICONS.fwd}Forward</button>`}</td>`;
+  return `<td class="actions"><button type="button" class="sm" data-w="logs" data-k="${k}" title="Logs">${ICONS.logs}Logs</button>${settings.read_only ? '' :
+    `<button type="button" class="sm" data-w="shell" data-k="${k}" title="Shell">${ICONS.shell}Shell</button><button type="button" class="sm" data-w="fwd" data-k="${k}" title="Forward">${ICONS.fwd}Forward</button>`}</td>`;
 };
 const jobCell = (r) => {
   const k = esc(`${r.namespace}/${r.name}`);
-  return `<td class="actions"><button type="button" class="sm" data-w="logs" data-k="${k}">${ICONS.logs}Logs</button>${settings.read_only ? '' : `<button type="button" class="sm" data-w="trigger" data-k="${k}" title="Run this job again as a new job">Trigger</button><button type="button" class="sm danger" data-w="delete" data-k="${k}">Delete</button>`}</td>`;
+  return `<td class="actions"><button type="button" class="sm" data-w="logs" data-k="${k}" title="Logs">${ICONS.logs}Logs</button>${settings.read_only ? '' : `${ab('play', 'Run this job again as a new job', `data-w="trigger" data-k="${k}"`)}${ab('trash', 'Delete', `data-w="delete" data-k="${k}"`, 'danger')}`}</td>`;
 };
 // ---- Kubernetes connections: several can be configured; every k8s call carries ?cluster=
 let clusters = [], cluster = '', kOk = false, kWhy = ''; // cluster = the active connection ('' = none)
@@ -41,7 +41,7 @@ const LISTS = {
     text: (r) => [r.name, r.status],
     row: (r) => `<td class="name">${esc(r.name)}${selected.includes(r.name) ? ' ' + pill('selected') : ''}</td>
       <td>${pill(r.status, r.status === 'Active' ? 'ok' : 'bad')}</td><td>${esc(r.age)}</td>
-      <td class="actions"><button type="button" class="sm" data-open="${esc(r.name)}">Open</button></td>` },
+      <td class="actions">${ab('open', 'Open', `data-open="${esc(r.name)}"`)}</td>` },
   services: { url: (ns) => kq(`/api/services?namespace=${encodeURIComponent(ns)}`), body: 'svcrows', badge: 'svccount', cols: 8,
     text: (r) => [r.name, r.namespace, r.type, r.cluster_ip, r.external_ip ?? '', ...r.ports],
     row: (r) => `<td class="name">${esc(r.name)}</td><td>${esc(r.namespace)}</td><td>${pill(r.type)}</td><td>${esc(r.cluster_ip)}</td>
@@ -156,7 +156,7 @@ $('jobrows').addEventListener('click', async (e) => {
   if (!r) return;
   if (b.dataset.w === 'logs') { klogs(r, 'jobs'); return openLogs(r, '', 'jobs'); }
   if (b.dataset.w === 'trigger') {
-    if (!confirm(`Run job ${r.name} again? A new job is created from its spec.`)) return;
+    if (!await askConfirm(`Run job ${r.name} again? A new job is created from its spec.`, { title: 'Run job again', ok: 'Run' })) return;
     try {
       const j = await api(kq(`/api/jobs/${r.namespace}/${encodeURIComponent(r.name)}/trigger`, r.cluster), { method: 'POST' });
       ktoast(r, r.namespace, `get job ${r.name} -o yaml | kubectl create -f -   (a copy, renamed)`, `job.batch/${j.name} created`);
@@ -164,7 +164,7 @@ $('jobrows').addEventListener('click', async (e) => {
     } catch (err) { toast(err.message); }
     return;
   }
-  if (!confirm(`Delete job ${r.name}? Its pods are deleted with it.`)) return;
+  if (!await askConfirm(`Delete job ${r.name}? Its pods are deleted with it.`, { title: 'Delete job', ok: 'Delete', danger: true })) return;
   try {
     await api(kq(`/api/jobs/${r.namespace}/${encodeURIComponent(r.name)}`, r.cluster), { method: 'DELETE' });
     ktoast(r, r.namespace, `delete job ${r.name}`, `job.batch "${r.name}" deleted`);
@@ -208,10 +208,10 @@ function renderPods() {
         <td class="num">${p.restarts}</td><td>${esc(p.age)}</td>
         <td>${p.owner_kind ? pill(p.owner_kind) : none}</td>
         <td class="actions">
-          <button data-a="logs" data-i="${i}" class="sm">${ICONS.logs}Logs</button>
-          ${settings.read_only ? '' : `<button data-a="shell" data-i="${i}" class="sm">${ICONS.shell}Shell</button>
-          <button data-a="fwd" data-i="${i}" class="sm">${ICONS.fwd}Forward</button>
-          <button data-a="restart" data-i="${i}" class="sm danger">${ICONS.restart}Restart</button>`}
+          <button data-a="logs" data-i="${i}" class="sm" title="Logs">${ICONS.logs}Logs</button>
+          ${settings.read_only ? '' : `<button data-a="shell" data-i="${i}" class="sm" title="Shell">${ICONS.shell}Shell</button>
+          <button data-a="fwd" data-i="${i}" class="sm" title="Forward">${ICONS.fwd}Forward</button>
+          <button data-a="restart" data-i="${i}" class="sm danger" title="Restart">${ICONS.restart}Restart</button>`}
         </td></tr>`).join('') + moreRow('pods', rows.length, 9)
     : `<tr><td colspan="9" class="muted">${emptyText(pods.length)}</td></tr>`;
 }
@@ -231,7 +231,7 @@ async function restart(p) {
   const warn = p.owner_kind
     ? `Delete pod ${p.name}? ${p.owner_kind} will recreate it.`
     : `Pod ${p.name} has NO owner: deleting it is permanent, nothing recreates it. Delete anyway?`;
-  if (!confirm(warn)) return;
+  if (!await askConfirm(warn, { title: 'Restart pod', ok: 'Delete pod', danger: true })) return;
   try {
     await api(kq(`/api/pods/${p.namespace}/${p.name}/restart`, p.cluster), { method: 'POST' });
     ktoast(p, p.namespace, `delete pod ${p.name}`, `pod "${p.name}" deleted`);

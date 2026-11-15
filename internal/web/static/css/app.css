@@ -259,3 +259,12 @@ button.sm:has(> svg) { display:inline-flex; align-items:center; gap:6px; } butto
 .tab .tl { display:inline-flex; align-items:center; gap:6px; } .tab .tl svg { width:14px; height:14px; flex:none; }
 #dockhead .icon { margin:0 2px; flex:none; } #dockhead .icon:last-child { margin-right:8px; } #dockhead .icon svg { width:16px; height:16px; }
 #dock.min { height:auto; } #dock.min #panes, #dock.min #dockresize { display:none; } body.docked.docked-min .content { padding-bottom:70px; }
+dialog.dlg .head .icon { padding:6px 8px; } dialog.dlg .head .icon svg { width:16px; height:16px; } dialog.dlg pre { margin:0; white-space:pre-wrap; word-break:break-word; font:12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; } #ldbody, #rdbody, #esbody { padding:12px 16px; overflow:auto; }
+button.icon-btn { display:inline-flex; align-items:center; justify-content:center; padding:5px 8px; } button.icon-btn svg, #rdelsel svg, #esdelsel svg { width:15px; height:15px; flex:none; } #rdelsel, #esdelsel { display:inline-flex; align-items:center; gap:6px; }
+button.sm.danger.icon-btn { color:var(--danger); } td.actions { white-space:nowrap; }
+dialog.ask { width:min(440px, 94vw); } dialog.ask form { display:flex; flex-direction:column; min-height:0; }
+#askbody { padding:14px 16px; display:flex; flex-direction:column; gap:12px; overflow:auto; } .askmsg { margin:0; white-space:pre-wrap; line-height:1.5; }
+.askf { display:flex; flex-direction:column; gap:4px; } .askf span { font-weight:600; font-size:13px; } .askf input, .askf select { width:100%; } .askf small { font-size:12px; }
+dialog.ask .foot { display:flex; justify-content:flex-end; gap:10px; padding:10px 16px; border-top:1px solid var(--line); }
+dialog.ask .foot .danger { background:var(--danger); border-color:var(--danger); color:#fff; } dialog.ask .foot .primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+dialog.ask .foot .danger { background:#c62828; border-color:#c62828; color:#fff; } dialog.ask .foot .primary { background:#0b6bcb; border-color:#0b6bcb; color:#fff; }

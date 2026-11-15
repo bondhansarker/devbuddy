@@ -99,8 +99,8 @@ function renderKconns() {
   $('kconnrows').innerHTML = clusters.length ? clusters.map((c) => {
     const st = kstate[c.name];
     const acts = st.status === 'connected'
-      ? '<button type="button" class="sm" data-a="namespaces">Namespaces</button><button type="button" class="sm" data-a="pods">Pods</button><button type="button" class="sm" data-a="disconnect">Disconnect</button>'
-      : `<button type="button" class="sm" data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}>Connect</button>`;
+      ? ab('namespaces', 'Namespaces', 'data-a="namespaces"') + ab('pods', 'Pods', 'data-a="pods"') + ab('power', 'Disconnect', 'data-a="disconnect"')
+      : ab('plug', 'Connect', `data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}`);
     return `<tr data-n="${esc(c.name)}"><td class="name">${esc(c.name)}</td><td style="word-break:break-all">${esc(c.context)}</td><td>${cell(c)}</td><td class="actions">${acts}</td></tr>`;
   }).join('') : '<tr><td colspan="4" class="muted">no Kubernetes cluster in the config: add a "kubernetes" list</td></tr>';
 }

@@ -1,5 +1,15 @@
 // sidebar icons (inline SVG, drawn in currentColor)
 const ICONS = {
+  view: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14M10 11v6M14 11v6"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l13 8-13 8z"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+  open: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  plug: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></svg>',
+  power: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M6.4 6.4a8 8 0 1 0 11.2 0"/></svg>',
+  braces: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1M16 3h1a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-1"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>',
+  close: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   restart: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>',
   logs: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M8 12h8M8 15h5"/></svg>',
   shell: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M7.5 12.5l3 2-3 2M13 17h3.5"/></svg>',
@@ -102,3 +112,50 @@ function multiSelect(host, allLabel, unit, onChange) {
   document.addEventListener('click', (e) => { if (!dd.contains(e.target)) dd.open = false; });
   return ms;
 }
+
+// JSON is always shown indented: strings that hold JSON are opened too, so nothing needs a second view
+function deepParse(v) {
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (/^[{[]/.test(t)) { try { return deepParse(JSON.parse(t)); } catch {} }
+    return v;
+  }
+  if (Array.isArray(v)) return v.map(deepParse);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deepParse(x)]));
+  return v;
+}
+const prettyJson = (v) => JSON.stringify(deepParse(v), null, 2);
+// the copy / close icons every modal uses
+function dlgIcons(copyId, closeId) {
+  const c = $(copyId), x = $(closeId);
+  c.className = x.className = 'icon'; c.innerHTML = ICONS.copy; x.innerHTML = ICONS.close; c.title = 'Copy'; x.title = 'Close';
+}
+
+// an icon-only action button; the label is its tooltip (and its accessible name)
+const ab = (icon, label, attrs = '', cls = '') => `<button type="button" class="sm icon-btn ${cls}" title="${label}" aria-label="${label}" ${attrs}>${ICONS[icon]}</button>`;
+
+// In-app dialogs instead of the browser's confirm() / prompt().
+// ask({ title, message, fields: [{ name, label, value, type: 'number' | 'select' | 'text', options, hint, required }], ok, danger })
+// resolves to the entered values ({} when there are no fields), or null when cancelled.
+function ask({ title = '', message = '', fields = [], ok = 'OK', danger = false }) {
+  return new Promise((resolve) => {
+    const d = $('askdlg'), form = $('askform');
+    $('asktitle').textContent = title;
+    $('askx').innerHTML = ICONS.close; $('askx').title = 'Cancel';
+    $('askbody').innerHTML = (message ? `<p class="askmsg">${esc(message)}</p>` : '') + fields.map((f) => `<label class="askf"><span>${esc(f.label)}</span>${
+      f.type === 'select'
+        ? `<select name="${esc(f.name)}">${f.options.map((o) => `<option${o === f.value ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+        : `<input name="${esc(f.name)}" type="${f.type || 'text'}" value="${esc(f.value ?? '')}" ${f.type === 'number' ? 'min="1" max="65535"' : ''} ${f.required ? 'required' : ''} autocomplete="off">`
+    }${f.hint ? `<small class="muted">${esc(f.hint)}</small>` : ''}</label>`).join('');
+    const okb = $('askok');
+    okb.textContent = ok; okb.className = danger ? 'danger' : 'primary';
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; d.close(); resolve(v); };
+    form.onsubmit = (e) => { e.preventDefault(); finish(Object.fromEntries(fields.map((f) => [f.name, form.elements[f.name].value]))); };
+    $('askcancel').onclick = $('askx').onclick = () => finish(null);
+    d.oncancel = (e) => { e.preventDefault(); finish(null); }; // Esc
+    d.showModal();
+    (form.querySelector('input, select') || (danger ? $('askcancel') : okb)).focus();
+  });
+}
+const askConfirm = (message, opts = {}) => ask({ message, ...opts }).then((r) => r !== null);
