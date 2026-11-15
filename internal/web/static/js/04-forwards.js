@@ -56,7 +56,7 @@ function renderForwards() {
     <td><a href="http://localhost:${f.local_port}" target="_blank" rel="noopener" style="color:var(--accent)">localhost:${f.local_port}</a></td>
     <td>→ ${clusters.length > 1 ? esc(f.cluster) + ' · ' : ''}${esc(f.namespace)}/${esc(f.pod)}:${f.container_port}</td>
     <td class="muted">${esc(f.error || '')}</td>
-    <td class="actions">${ab('stop', 'Stop', `data-id="${esc(f.id)}"`, 'danger')}</td></tr>`).join('');
+    <td class="actions">${ab('stop', 'Stop', `data-id="${esc(f.id)}"`, 'danger', true)}</td></tr>`).join('');
 }
 $('fwrows').addEventListener('click', async (e) => {
   const b = e.target.closest('button');
