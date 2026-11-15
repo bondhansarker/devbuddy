@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -99,7 +98,7 @@ func (s *Server) esQuery(w http.ResponseWriter, r *http.Request) {
 		Path   string `json:"path"`
 		Body   string `json:"body"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body, maxBody); err != nil {
 		fail(w, http.StatusBadRequest, errors.New("body must be {method, path, body}"))
 		return
 	}
@@ -110,7 +109,7 @@ func (s *Server) esQuery(w http.ResponseWriter, r *http.Request) {
 		esFail(w, err)
 		return
 	}
-	ok(w, map[string]any{"status": status, "body": string(data)})
+	ok(w, map[string]any{"status": status, "body": scrub(string(data))})
 }
 
 // esDelete deletes documents by index and id (never by pattern), unless read_only is set. The Query tab
@@ -123,7 +122,7 @@ func (s *Server) esDelete(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Items []esview.DocRef `json:"items"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body, maxBody); err != nil {
 		fail(w, http.StatusBadRequest, errors.New("body must be {items: [{index, id}]}"))
 		return
 	}

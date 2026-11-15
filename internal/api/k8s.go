@@ -163,7 +163,13 @@ func (s *Server) podFor(kind string) http.HandlerFunc {
 			kubeFail(w, err)
 			return
 		}
-		ok(w, map[string]string{"pod": pod})
+		// the pod's details come with its name, so Shell and Forward do not depend on the Pods page having been loaded
+		details, err := k.GetPod(r.Context(), r.PathValue("ns"), pod)
+		if err != nil {
+			kubeFail(w, err)
+			return
+		}
+		ok(w, map[string]any{"pod": pod, "details": details})
 	}
 }
 
@@ -282,4 +288,18 @@ func (s *Server) deleteNamespace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ok(w, map[string]bool{"ok": true})
+}
+
+// nodes is the cluster-wide health view: every node with readiness, pressure, capacity, requests and use.
+func (s *Server) nodes(w http.ResponseWriter, r *http.Request) {
+	k, okc := s.cluster(w, r)
+	if !okc {
+		return
+	}
+	n, err := k.Nodes(r.Context())
+	if err != nil {
+		kubeFail(w, err)
+		return
+	}
+	ok(w, n)
 }

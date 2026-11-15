@@ -128,8 +128,8 @@ func (c Config) Validate() error {
 			return fmt.Errorf("redis[%d]: name must be set and unique", i)
 		}
 		seen[r.Name] = true
-		if _, _, err := net.SplitHostPort(r.Addr); err != nil {
-			return fmt.Errorf("redis %q addr: %w", r.Name, err)
+		if _, _, err := net.SplitHostPort(r.Addr); err != nil || strings.ContainsAny(r.Addr, "@/") {
+			return fmt.Errorf("redis %q addr must be host:port (the password has its own key)", r.Name)
 		}
 	}
 	seenES := map[string]bool{}
@@ -141,6 +141,9 @@ func (c Config) Validate() error {
 		u, err := url.Parse(ESBaseURL(e.Addr))
 		if err != nil || u.Host == "" {
 			return fmt.Errorf("elasticsearch %q addr must look like http://host:9200", e.Name)
+		}
+		if u.User != nil { // an address is shown in the UI: credentials belong in username / password / api_key
+			return fmt.Errorf("elasticsearch %q: do not put credentials in addr, use the username and password (or api_key) keys", e.Name)
 		}
 	}
 	return nil
@@ -169,4 +172,29 @@ func expandHome(p string) string {
 		}
 	}
 	return p
+}
+
+// HasSecrets reports whether the config holds a password or API key.
+func (c Config) HasSecrets() bool {
+	for _, r := range c.Redis {
+		if r.Password != "" {
+			return true
+		}
+	}
+	for _, e := range c.Elasticsearch {
+		if e.Password != "" || e.APIKey != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// Warnings lists problems that do not stop the app: a config file with passwords that other users on
+// the machine can read.
+func Warnings(path string, c Config) []string {
+	var out []string
+	if fi, err := os.Stat(path); err == nil && c.HasSecrets() && fi.Mode().Perm()&0o077 != 0 {
+		out = append(out, fmt.Sprintf("%s holds passwords or API keys and is readable by other users (mode %04o): run chmod 600 on it", path, fi.Mode().Perm()))
+	}
+	return out
 }

@@ -2,6 +2,7 @@ package redisview
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -38,6 +39,23 @@ func TestAllowed(t *testing.T) {
 	} {
 		if got := Allowed(c.args, c.readOnly) == nil; got != c.ok {
 			t.Fatalf("%v readOnly=%v: allowed=%v want %v", c.args, c.readOnly, got, c.ok)
+		}
+	}
+}
+
+func TestConfigGetHidesCredentialSettings(t *testing.T) {
+	for name, in := range map[string]any{
+		"resp3": map[any]any{"requirepass": "s3cret", "masterauth": "m4ster", "tls-key-file-pass": "kp", "maxmemory": "0"},
+		"resp2": []any{"requirepass", "s3cret", "masterauth", "m4ster", "tls-key-file-pass", "kp", "maxmemory", "0"},
+	} {
+		out := format(maskConfig(in), true)
+		for _, leak := range []string{"s3cret", "m4ster", "\"kp\""} {
+			if strings.Contains(out, leak) {
+				t.Errorf("%s leaks %s: %s", name, leak, out)
+			}
+		}
+		if !strings.Contains(out, "(hidden)") || !strings.Contains(out, "maxmemory") || !strings.Contains(out, "\"0\"") {
+			t.Errorf("%s: %s", name, out)
 		}
 	}
 }

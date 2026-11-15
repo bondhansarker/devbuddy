@@ -155,6 +155,9 @@ func (m *Manager) Exec(ctx context.Context, name string, db int, args []string, 
 		}
 		return "", err
 	}
+	if strings.EqualFold(args[0], "config") && len(args) > 1 && strings.EqualFold(args[1], "get") {
+		v = maskConfig(v)
+	}
 	out := format(v, true)
 	if len(out) > maxReply {
 		out = out[:maxReply] + "\n… output cut at 256 KB"
@@ -219,4 +222,37 @@ func format(v any, top bool) string {
 		return strings.Join(lines, "\n")
 	}
 	return fmt.Sprint(v)
+}
+
+// secretSetting reports whether a CONFIG name holds a credential (requirepass, masterauth, tls-key-file-pass, ...).
+func secretSetting(name string) bool {
+	n := strings.ToLower(name)
+	return strings.Contains(n, "pass") || strings.Contains(n, "auth") || strings.Contains(n, "secret")
+}
+
+// maskConfig hides the values of credential settings in a CONFIG GET reply, which is either a map (RESP3)
+// or a flat name, value, name, value array (RESP2).
+func maskConfig(v any) any {
+	const hidden = "(hidden)"
+	switch x := v.(type) {
+	case map[any]any:
+		out := make(map[any]any, len(x))
+		for k, e := range x {
+			if secretSetting(fmt.Sprint(k)) {
+				e = hidden
+			}
+			out[k] = e
+		}
+		return out
+	case []any:
+		out := make([]any, len(x))
+		copy(out, x)
+		for i := 0; i+1 < len(out); i += 2 {
+			if secretSetting(fmt.Sprint(out[i])) {
+				out[i+1] = hidden
+			}
+		}
+		return out
+	}
+	return v
 }

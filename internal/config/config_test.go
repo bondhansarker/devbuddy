@@ -112,3 +112,52 @@ func TestKubernetesConnections(t *testing.T) {
 		}
 	}
 }
+
+func TestCredentialsDoNotBelongInAddresses(t *testing.T) {
+	base := Config{Addr: "127.0.0.1:9100", RefreshSeconds: 5}
+	for name, c := range map[string]Config{
+		"es userinfo":    {Addr: base.Addr, RefreshSeconds: 5, Elasticsearch: []Elasticsearch{{Name: "e", Addr: "https://elastic:hunter22@es.example.com:9200"}}},
+		"es user only":   {Addr: base.Addr, RefreshSeconds: 5, Elasticsearch: []Elasticsearch{{Name: "e", Addr: "http://elastic@es.example.com:9200"}}},
+		"redis userinfo": {Addr: base.Addr, RefreshSeconds: 5, Redis: []Redis{{Name: "r", Addr: "user:pw@10.0.0.5:6379"}}},
+		"redis url":      {Addr: base.Addr, RefreshSeconds: 5, Redis: []Redis{{Name: "r", Addr: "redis://10.0.0.5:6379"}}},
+	} {
+		err := c.Validate()
+		if err == nil {
+			t.Errorf("%s: accepted", name)
+		} else if strings.Contains(err.Error(), "hunter22") || strings.Contains(err.Error(), "pw@") {
+			t.Errorf("%s: the error repeats the credential: %v", name, err)
+		}
+	}
+	ok := base
+	ok.Elasticsearch = []Elasticsearch{{Name: "e", Addr: "https://es.example.com:9200", Username: "elastic", Password: "x"}}
+	if err := ok.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWarnsAboutAConfigOthersCanRead(t *testing.T) {
+	dir := t.TempDir()
+	write := func(mode os.FileMode) string {
+		p := filepath.Join(dir, "c.json")
+		os.Remove(p)
+		if err := os.WriteFile(p, []byte("{}"), mode); err != nil {
+			t.Fatal(err)
+		}
+		os.Chmod(p, mode)
+		return p
+	}
+	withPW := Config{Redis: []Redis{{Name: "r", Addr: "h:1", Password: "pw"}}}
+	without := Config{Redis: []Redis{{Name: "r", Addr: "h:1"}}}
+	if w := Warnings(write(0o644), withPW); len(w) != 1 || !strings.Contains(w[0], "chmod 600") {
+		t.Errorf("0644 with a password: %v", w)
+	}
+	if w := Warnings(write(0o640), Config{Elasticsearch: []Elasticsearch{{Name: "e", Addr: "h", APIKey: "k"}}}); len(w) != 1 {
+		t.Errorf("0640 with an api key: %v", w)
+	}
+	if w := Warnings(write(0o600), withPW); len(w) != 0 {
+		t.Errorf("0600 is fine: %v", w)
+	}
+	if w := Warnings(write(0o644), without); len(w) != 0 {
+		t.Errorf("no secrets, nothing to warn about: %v", w)
+	}
+}

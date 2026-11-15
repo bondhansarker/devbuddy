@@ -50,7 +50,6 @@ async function loadForwards() {
   renderForwards();
 }
 function renderForwards() {
-  $('fwcount').textContent = forwards.length;
   const l = forwards.filter((f) => inNs(f.namespace) && match([f.namespace, f.pod, f.local_port, f.container_port, f.error]));
   $('fwrows').innerHTML = !l.length ? `<tr><td colspan="4" class="muted">${emptyText(forwards.length)}</td></tr>` : l.map((f) => `<tr>
     <td><a href="http://localhost:${f.local_port}" target="_blank" rel="noopener" style="color:var(--accent)">localhost:${f.local_port}</a></td>

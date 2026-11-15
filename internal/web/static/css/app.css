@@ -305,3 +305,45 @@ td.actions button.sm { white-space:nowrap; } td.actions { min-width:210px; }
 .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; } .seg button { border:none; border-radius:0; background:none; color:var(--muted); padding:5px 14px; font:inherit; font-size:13px; cursor:pointer; } .seg button + button { border-left:1px solid var(--line); }
 .seg button.on { background:var(--accent-bg); color:var(--accent); font-weight:600; }
 @media (max-width: 800px) { .settingspop { left:10px; right:10px; width:auto; max-width:none; } }
+/* nodes: summary tiles, usage bars */
+.nodesum { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:12px; } .nodesum:empty { display:none; } #nodenote:empty { display:none; } #nodenote { margin:0 0 10px; font-size:13px; }
+.tile { padding:12px 16px; display:flex; flex-direction:column; gap:6px; margin:0; } .tile .t { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); } .tile b { font-size:22px; line-height:1.1; } .tile small { font-size:12px; } .bad-t { color:var(--danger); }
+.ubar { height:6px; border-radius:3px; background:var(--panel); overflow:hidden; min-width:90px; } .ubar i { display:block; height:100%; background:var(--ok); } .ubar.warn i { background:#e3b341; } .ubar.bad i { background:var(--danger); }
+#nodesView td.res { min-width:150px; } #nodesView .usetxt { font-size:12.5px; margin-top:4px; white-space:nowrap; } #nodesView td.res small { display:block; font-size:11.5px; }
+@media (max-width: 1300px) { #nodesView .ver { display:none; } }
+#nodesView td.res { min-width:130px; } #nodesView td.num { white-space:nowrap; }
+@media (max-width: 1050px) { #nodesView th:nth-child(7), #nodesView td:nth-child(7) { display:none; } #nodesView td.res { min-width:112px; } }
+@media (max-width: 1050px) { #nodesView td.res { min-width:96px; } #nodesView .ubar { min-width:70px; } #nodesView .usetxt { white-space:normal; } #nodesView th, #nodesView td { padding-left:8px; padding-right:8px; } }
+/* Settings: icon + short label, the explanation is the tooltip */
+#setbody { padding:8px 12px 12px; display:flex; flex-direction:column; gap:4px; } #setbody section { display:none; }
+.setrow { padding:6px 4px; gap:10px; } .setrow .setl { display:inline-flex; color:var(--muted); flex:none; } .setrow > span:nth-child(2) { flex:1; }
+.settingspop { width:280px; } .seg button { padding:5px 10px; display:inline-flex; align-items:center; } .seg svg { width:16px; height:16px; }
+#setbody button.wide { width:100%; justify-content:center; padding:8px 12px; }
+/* Disconnect all: a power icon beside Settings at the bottom of the sidebar */
+.sidebtns { display:flex; gap:6px; margin:0 4px; } .sidebtns .settingsbtn { flex:1; margin:0; min-width:0; }
+.discallbtn { flex:none; display:inline-flex; align-items:center; justify-content:center; width:38px; border:1px solid var(--line); border-radius:8px; background:none; color:var(--muted); cursor:pointer; padding:0; }
+.discallbtn:hover { color:var(--danger); border-color:var(--danger); } .discallbtn svg { width:16px; height:16px; }
+body.collapsed .sidebtns { flex-direction:column; margin:auto 0 0; gap:2px; } body.collapsed .sidebtns .settingsbtn { margin:0; } body.collapsed .discallbtn { width:100%; height:40px; border:none; } body.collapsed .discallbtn svg { width:20px; height:20px; }
+.discallbtn.on { color:var(--ok); border-color:var(--ok); } .discallbtn.on:hover { color:var(--danger); border-color:var(--danger); }
+/* ---- compact scale: about 10% smaller type and spacing (remove this block to go back) ---- */
+:root { --side:212px; } body.collapsed { --side:56px; }
+body { font-size:13px; line-height:1.45; }
+.content { padding:18px 22px 52px; } .topbar { margin-bottom:12px; } h2 { font-size:18px; } .topbar p { font-size:12.5px; }
+input, select, button { padding:5px 9px; border-radius:7px; } button.sm { padding:2px 7px; } .t { font-size:11.5px; }
+th, td { padding:6px 9px; } th { font-size:11px; } .pill { font-size:11.5px; padding:0 8px; }
+.card { border-radius:10px; } .bar { gap:8px; margin-bottom:10px; }
+.dd summary { padding:5px 26px 5px 9px; width:230px; } #statusdd .dd summary, #ownerdd .dd summary, #rdbdd .dd summary { width:150px; }
+.ddpanel label { padding:3px 8px; } .ddpanel { width:300px; }
+/* sidebar */
+aside { padding:14px 10px; gap:12px; } .brand .logo svg { width:30px; height:26px; }
+nav button { padding:7px 9px; } nav .grp { font-size:10.5px; margin:14px 4px 3px; padding-top:12px; }
+nav .knh { min-height:32px; } nav .kname { padding:5px 4px 5px 10px; font-size:12.5px; }
+nav button.kc, nav .gbody > button[data-view] { min-height:28px; padding:4px 9px; font-size:12.5px; gap:9px; }
+nav .ico, nav .ico svg { width:15px; height:15px; } nav .kids { margin:1px 0 3px 16px; } nav .kn { margin:1px 0; }
+nav .sw { width:26px; height:15px; } nav .sw i { width:9px; height:9px; } nav .sw.connected i { left:13px; }
+.sidebtns .settingsbtn { padding:6px 10px; font-size:12.5px; } .discallbtn { width:34px; }
+#sidetoggle { width:28px; height:28px; } .settingspop { width:260px; }
+/* the sidebar scrolls when every group is open, so Settings never leaves the screen */
+nav { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+aside > .side-foot, aside > .sidebtns, aside > .brand { flex:none; }
+body.collapsed nav { overflow-x:hidden; }

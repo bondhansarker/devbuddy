@@ -9,6 +9,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -99,5 +100,63 @@ func TestCreateAndDeleteNamespace(t *testing.T) {
 	}
 	if _, err := cs.CoreV1().Namespaces().Get(ctx, "team-a", metav1.GetOptions{}); err == nil {
 		t.Fatal("still there")
+	}
+}
+
+func TestNodesReadinessPressureCapacityAndRequests(t *testing.T) {
+	q := resource.MustParse
+	node := func(name string, ready corev1.ConditionStatus, extra ...corev1.NodeCondition) *corev1.Node {
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"node-role.kubernetes.io/control-plane": ""}},
+			Status: corev1.NodeStatus{
+				NodeInfo:    corev1.NodeSystemInfo{KubeletVersion: "v1.30.1"},
+				Conditions:  append([]corev1.NodeCondition{{Type: corev1.NodeReady, Status: ready}}, extra...),
+				Allocatable: corev1.ResourceList{corev1.ResourceCPU: q("3920m"), corev1.ResourceMemory: q("14Gi"), corev1.ResourcePods: q("110")},
+			},
+		}
+	}
+	pod := func(name, nodeName string, phase corev1.PodPhase, cpu, mem string) *corev1.Pod {
+		return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "app"},
+			Spec:   corev1.PodSpec{NodeName: nodeName, Containers: []corev1.Container{{Name: "c", Resources: corev1.ResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceCPU: q(cpu), corev1.ResourceMemory: q(mem)}}}}},
+			Status: corev1.PodStatus{Phase: phase}}
+	}
+	cs := fake.NewSimpleClientset(
+		node("n2", corev1.ConditionFalse, corev1.NodeCondition{Type: corev1.NodeMemoryPressure, Status: corev1.ConditionTrue}),
+		node("n1", corev1.ConditionTrue, corev1.NodeCondition{Type: corev1.NodeDiskPressure, Status: corev1.ConditionFalse}),
+		pod("a", "n1", corev1.PodRunning, "500m", "1Gi"),
+		pod("b", "n1", corev1.PodPending, "250m", "512Mi"),
+		pod("done", "n1", corev1.PodSucceeded, "1", "1Gi"), // finished pods do not count
+		pod("c", "n2", corev1.PodRunning, "1", "2Gi"),
+		pod("unscheduled", "", corev1.PodPending, "1", "1Gi"),
+	)
+	res, err := NewWith(cs).Nodes(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Nodes) != 2 || res.Nodes[0].Name != "n1" || res.Nodes[1].Name != "n2" || !res.Requests || res.Metrics {
+		t.Fatalf("%+v", res)
+	}
+	n1, n2 := res.Nodes[0], res.Nodes[1]
+	if n1.Status != "Ready" || len(n1.Pressure) != 0 || n1.Roles[0] != "control-plane" || n1.Version != "v1.30.1" {
+		t.Fatalf("n1: %+v", n1)
+	}
+	if n2.Status != "NotReady" || len(n2.Pressure) != 1 || n2.Pressure[0] != "MemoryPressure" {
+		t.Fatalf("n2: %+v", n2)
+	}
+	if n1.CPUAllocMilli != 3920 || n1.MemAllocBytes != 14<<30 || n1.PodsAlloc != 110 {
+		t.Fatalf("allocatable: %+v", n1)
+	}
+	if n1.Pods != 2 || n1.CPUReqMilli != 750 || n1.MemReqBytes != 1536<<20 || n2.Pods != 1 || n2.CPUReqMilli != 1000 {
+		t.Fatalf("requests: n1 %+v n2 %+v", n1, n2)
+	}
+	if n1.CPUUseMilli != nil {
+		t.Fatal("no metrics-server: no live use")
+	}
+}
+
+func TestParseNodeMetrics(t *testing.T) {
+	m, err := parseNodeMetrics([]byte(`{"items":[{"metadata":{"name":"n1"},"usage":{"cpu":"1250m","memory":"6Gi"}},{"metadata":{"name":"n2"},"usage":{"cpu":"250000000n","memory":"1024Ki"}}]}`))
+	if err != nil || m["n1"] != [2]int64{1250, 6 << 30} || m["n2"] != [2]int64{250, 1 << 20} {
+		t.Fatalf("%v %v", m, err)
 	}
 }

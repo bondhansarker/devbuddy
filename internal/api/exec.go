@@ -106,6 +106,7 @@ func (s *Server) exec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.Close()
+	c.SetReadLimit(1 << 20) // keystrokes and pastes, not unbounded frames
 	sh := s.shellFor(k, r.PathValue("ns"), r.PathValue("pod"), r.URL.Query().Get("container"))
 
 	sh.mu.Lock()

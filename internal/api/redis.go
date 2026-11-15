@@ -82,7 +82,7 @@ func (s *Server) redisDelete(w http.ResponseWriter, r *http.Request) {
 		DB   int      `json:"db"`
 		Keys []string `json:"keys"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body, maxBody); err != nil {
 		fail(w, http.StatusBadRequest, errors.New("body must be {db, keys}"))
 		return
 	}
@@ -103,7 +103,7 @@ func (s *Server) redisCommand(w http.ResponseWriter, r *http.Request) {
 		DB      int    `json:"db"`
 		Command string `json:"command"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body, maxBody); err != nil {
 		fail(w, http.StatusBadRequest, errors.New("body must be {db, command}"))
 		return
 	}
@@ -119,7 +119,7 @@ func (s *Server) redisCommand(w http.ResponseWriter, r *http.Request) {
 		redisFail(w, err)
 		return
 	}
-	ok(w, map[string]string{"output": out})
+	ok(w, map[string]string{"output": scrub(out)})
 }
 
 func (s *Server) redisSet(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +151,7 @@ func (s *Server) redisExport(w http.ResponseWriter, r *http.Request) {
 		DB   int      `json:"db"`
 		Keys []string `json:"keys"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body, maxBody); err != nil {
 		fail(w, http.StatusBadRequest, errors.New("body must be {db, keys}"))
 		return
 	}
