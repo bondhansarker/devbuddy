@@ -53,12 +53,18 @@ async function loadRedisDBs() {
 function redisDbsChanged() {
   if (rtab === 'keys') loadRedisKeys(true);
 }
+// every Keys action shows the redis-cli command it is the same as, as a toast
+const rq1 = (s) => (/[\s"']/.test(s) ? JSON.stringify(s) : s);
+const rcli = (db, args) => `redis-cli -n ${db} ${args}`;
+const rpat = (m) => (!m ? '*' : /[*?[\\]/.test(m) ? m : `*${m}*`);
+const rtoast = (lines, result) => toast(`$ ${lines.join('\n$ ')}${result ? '\n' + result : ''}`);
 // loadRedisKeys: reset = start over on every ticked db; else the next page of each db that has more.
 async function loadRedisKeys(reset) {
   const gen = reset ? ++rd.gen : rd.gen;
   if (reset) { rd.keys = []; rd.cursors = {}; rd.sel.clear(); rd.err = ''; renderRedis(); }
   const dbs = rdbs().filter((d) => reset || (rd.cursors[d] ?? '0') !== '0');
   const match = $('rkeysearch').value.trim();
+  if (dbs.length) rtoast(dbs.map((d) => rcli(d, `SCAN ${rd.cursors[d] ?? '0'} MATCH ${rq1(rpat(match))} COUNT 500${$('rtype').value ? ' TYPE ' + $('rtype').value : ''}`)));
   await Promise.all(dbs.map(async (d) => {
     try {
       const r = await api(`/api/redis/${encodeURIComponent(rsrv())}/keys?${rq({ match, type: $('rtype').value, cursor: rd.cursors[d] ?? '0', count: 200 }, d)}`);
@@ -81,12 +87,12 @@ function renderRedis() {
   $('rrows').innerHTML = rd.keys.length ? order.map(([k, i]) => `<tr>
       <td class="cb">${ro ? '' : `<input type="checkbox" data-i="${i}" ${rd.sel.has(rid(k)) ? 'checked' : ''}>`}</td>
       <td class="name" style="word-break:break-all">${esc(k.key)}</td>${multi ? `<td>db${k.db}</td>` : ''}<td>${pill(k.type)}</td><td class="num">${fmtTtl(k.ttl)}</td>
-      <td class="actions"><button type="button" class="sm" data-a="view" data-i="${i}">View</button>${ro ? '' : `<button type="button" class="sm danger" data-a="del" data-i="${i}">Delete</button>`}</td></tr>`).join('')
+      <td class="actions">${ab('view', 'View', `data-a="view" data-i="${i}"`)}${ro ? '' : ab('trash', 'Delete', `data-a="del" data-i="${i}"`, 'danger')}</td></tr>`).join('')
     : `<tr><td colspan="${cols}" class="muted">${rd.err ? esc(rd.err) : !rdbs().length ? 'pick a database' : moreRedis() ? 'scanning…' : 'no keys match'}</td></tr>`;
   $('rmore').hidden = !moreRedis();
   $('rall').hidden = ro;
   $('rdelsel').hidden = ro || rtab !== 'keys' || !rd.sel.size || view !== 'redis';
-  $('rdelsel').textContent = `Delete selected (${rd.sel.size})`;
+  $('rdelsel').innerHTML = `${ICONS.trash} ${rd.sel.size}`; $('rdelsel').title = `Delete selected (${rd.sel.size})`;
   $('rall').checked = rd.keys.length > 0 && rd.sel.size === rd.keys.length;
 }
 let rTimer;
@@ -111,15 +117,15 @@ async function redisDelete(items) {
   gone.forEach((id) => rd.sel.delete(id));
   renderRedis();
   loadRedisDBs().then(() => {}); // the key counts changed
-  toast(`deleted ${deleted} key${deleted === 1 ? '' : 's'}`);
+  rtoast([...new Set(items.map((i) => i.db))].map((db) => rcli(db, `UNLINK ${items.filter((i) => i.db === db).map((i) => rq1(i.key)).join(' ')}`).slice(0, 200)), `(integer) ${deleted}`);
 }
 const confirmDelete = (items) => {
   const dbs = [...new Set(items.map((i) => `db${i.db}`))].join(', ');
-  return confirm(items.length === 1 ? `Delete key ${items[0].key} from ${rsrv()} ${dbs}?` : `Delete ${items.length} keys from ${rsrv()} (${dbs})?`);
+  return askConfirm(items.length === 1 ? `Delete key ${items[0].key} from ${rsrv()} ${dbs}?` : `Delete ${items.length} keys from ${rsrv()} (${dbs})?`, { title: items.length === 1 ? 'Delete key' : 'Delete keys', ok: 'Delete', danger: true });
 };
 $('rdelsel').onclick = async () => {
   const items = rd.keys.filter((k) => rd.sel.has(rid(k)));
-  if (items.length && confirmDelete(items)) await redisDelete(items).catch((e) => toast(e.message));
+  if (items.length && await confirmDelete(items)) await redisDelete(items).catch((e) => toast(e.message));
 };
 $('rrows').addEventListener('change', (e) => {
   const c = e.target.closest('input[data-i]');
@@ -133,31 +139,27 @@ $('rrows').addEventListener('click', async (e) => {
   if (!b) return;
   const k = rd.keys[b.dataset.i];
   if (b.dataset.a === 'view') return openRedisKey(k.key, k.db);
-  if (confirmDelete([k])) await redisDelete([k]).catch((x) => toast(x.message));
+  if (await confirmDelete([k])) await redisDelete([k]).catch((x) => toast(x.message));
 });
 
 async function openRedisKey(key, db) {
   let v;
   try { v = await api(`/api/redis/${encodeURIComponent(rsrv())}/key?${rq({ key }, db)}`); } catch (e) { return toast(e.message); }
-  const kcol = { hash: 'field', list: 'index', zset: 'score', stream: 'id' }[v.type];
-  let body = '';
-  if (v.type === 'string') {
-    let t = v.string;
-    try { t = JSON.stringify(JSON.parse(t), null, 2); } catch {} // pretty-print JSON values
-    body = `<pre>${esc(t)}</pre>`;
-  } else {
-    body = `<table>${v.items.map((i) => `<tr>${kcol ? `<th>${esc(i.k)}</th>` : ''}<td><pre>${esc(i.v)}</pre></td></tr>`).join('')}</table>`;
-  }
+  // the value as indented JSON: a hash is an object, a list / set an array, a zset {member, score} pairs, a stream {id, fields}
+  const value = v.type === 'string' ? v.string
+    : v.type === 'hash' ? Object.fromEntries(v.items.map((i) => [i.k, i.v]))
+    : v.type === 'zset' ? v.items.map((i) => ({ member: i.v, score: Number(i.k) }))
+    : v.type === 'stream' ? v.items.map((i) => ({ id: i.k, fields: i.v }))
+    : v.items.map((i) => i.v);
+  let text = value;
+  if (typeof value !== 'string' || /^[{[]/.test(value.trim())) { try { text = prettyJson(value); } catch { text = String(value); } }
+  const body = `<pre>${esc(text)}</pre>`;
+  const k = rq1(key), read = { string: `GET ${k}`, hash: `HSCAN ${k} 0 COUNT 500`, list: `LRANGE ${k} 0 499`, set: `SSCAN ${k} 0 COUNT 500`, zset: `ZRANGE ${k} 0 499 WITHSCORES`, stream: `XRANGE ${k} - + COUNT 500` }[v.type];
+  rtoast([rcli(db, `TYPE ${k}`), rcli(db, `TTL ${k}`), ...(read ? [rcli(db, read)] : [])]);
   $('rdtitle').textContent = v.key;
-  $('rdbody').innerHTML = `<p class="muted">${pill(v.type)} ${v.type === 'string' ? `${v.size} bytes` : `${v.size} elements${kcol ? ` (${kcol} · value)` : ''}`} · TTL ${v.ttl < 0 ? 'none' : fmtTtl(v.ttl)} · ${esc(rsrv())} db${db}
+  $('rdbody').innerHTML = `<p class="muted">${pill(v.type)} ${v.type === 'string' ? `${v.size} bytes` : `${v.size} elements`} · TTL ${v.ttl < 0 ? 'none' : fmtTtl(v.ttl)} · ${esc(rsrv())} db${db}
     ${v.truncated ? ' · <strong>truncated: only the first part is shown</strong>' : ''}${v.binary ? ' · not valid UTF-8, shown lossy' : ''}</p>${body}`;
-  $('rdcopy').onclick = () => navigator.clipboard.writeText(v.type === 'string' ? v.string : v.items.map((i) => (i.k ? `${i.k}\t${i.v}` : i.v)).join('\n')).then(() => toast('copied'), () => toast('copy failed'));
-  $('rddel').hidden = settings.read_only;
-  $('rddel').onclick = async () => {
-    const item = { db, key };
-    if (!confirmDelete([item])) return;
-    await redisDelete([item]).then(() => $('redisdlg').close(), (e) => toast(e.message));
-  };
+  $('rdcopy').onclick = () => navigator.clipboard.writeText(text).then(() => toast('copied'), () => toast('copy failed'));
   $('redisdlg').showModal();
 }
 $('rdclose').onclick = () => $('redisdlg').close();
@@ -249,14 +251,14 @@ function makeShell(name) {
       }
       return newPrompt();
     }
-    if (/^(flushall|flushdb|keys|config\s+set)\b/i.test(cmd) && !confirm(`Run ${word.toUpperCase()} on ${name} db${rdb()}?`)) { out('cancelled'); return newPrompt(); }
+    if (/^(flushall|flushdb|keys|config\s+set)\b/i.test(cmd) && !await askConfirm(`Run ${word.toUpperCase()} on ${name} db${rdb()}?`, { title: 'Run command', ok: 'Run', danger: true })) { term.focus(); out('cancelled'); return newPrompt(); }
     busy = true; abort = new AbortController();
     try {
       const r = await api(`/api/redis/${encodeURIComponent(name)}/command`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: abort.signal, body: JSON.stringify({ db: rdb(), command: cmd }),
       });
       out(r.output);
-      toast(`${name} db${rdb()}: ${cmd.length > 80 ? cmd.slice(0, 80) + '…' : cmd}`);
+      toast(`$ ${rcli(rdb(), cmd.length > 120 ? cmd.slice(0, 120) + '…' : cmd)}`);
       if (/^(del|unlink|set|hset|flushdb|flushall|expire|rename|lpush|rpush|sadd|zadd)\b/i.test(cmd)) loadRedisKeys(true); // the key list changed
     } catch (err) { if (err.name !== 'AbortError') out('(refused) ' + err.message); }
     busy = false; abort = null;

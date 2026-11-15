@@ -10,21 +10,29 @@ const fwdMemory = () => { try { return JSON.parse(localStorage.getItem(FWDKEY)) 
 async function forward(p, svc) {
   const id = svc ? `${svc.namespace}/svc:${svc.name}` : fwdId(p);
   const last = fwdMemory()[id] || {};
+  const def = last.container_port ?? p.ports[0]?.container_port ?? '';
+  const hint = p.ports.map((x) => `${x.container_port}${x.name ? ' (' + x.name + ')' : ''}`).join(', ') || 'none declared';
+  const lpDef = (svc ? last.service_port != null : last.container_port === def) ? last.local_port ?? '' : '';
+  const r = await ask({
+    title: svc ? `Forward service ${svc.name}` : `Forward ${p.name}`,
+    message: svc ? `Via pod ${p.name}.` : '',
+    ok: 'Forward',
+    fields: [
+      svc ? { name: 'sp', label: 'Service port', type: 'number', required: true, value: last.service_port ?? parseInt(svc.ports[0], 10) ?? '', hint: `ports: ${svc.ports.join(', ') || 'none'}` }
+        : { name: 'cp', label: 'Container port', type: 'number', required: true, value: def, hint: `declared: ${hint}` },
+      { name: 'lp', label: 'Local port', type: 'number', value: lpDef, hint: 'blank = same as the remote port, or a free one if taken' },
+    ],
+  });
+  if (!r) return;
   let cp, sp;
   if (svc) {
-    sp = parseInt(prompt(`Service port of ${svc.name} (${svc.ports.join(', ') || 'none'}), forwarded via ${p.name}`, last.service_port ?? parseInt(svc.ports[0], 10) ?? ''), 10);
-    if (!sp) return;
+    sp = parseInt(r.sp, 10);
     const target = svc.targets[sp];
     if (!target) return toast(`${svc.name} has no port ${sp}`);
     cp = /^\d+$/.test(target) ? +target : p.ports.find((x) => x.name === target)?.container_port;
     if (!cp) return toast(`cannot resolve target port ${target} on ${p.name}`);
-  } else {
-    const def = last.container_port ?? p.ports[0]?.container_port ?? '';
-    const hint = p.ports.map((x) => `${x.container_port}${x.name ? ' (' + x.name + ')' : ''}`).join(', ') || 'none declared';
-    cp = parseInt(prompt(`Container port of ${p.name} (declared: ${hint})`, def), 10);
-    if (!cp) return;
-  }
-  const lp = parseInt(prompt('Local port (blank = same, or a free one if taken)', last.container_port === cp ? last.local_port ?? '' : ''), 10) || 0;
+  } else cp = parseInt(r.cp, 10);
+  const lp = parseInt(r.lp, 10) || 0;
   try {
     const f = await api('/api/forwards', {
       method: 'POST',
@@ -48,7 +56,7 @@ function renderForwards() {
     <td><a href="http://localhost:${f.local_port}" target="_blank" rel="noopener" style="color:var(--accent)">localhost:${f.local_port}</a></td>
     <td>→ ${clusters.length > 1 ? esc(f.cluster) + ' · ' : ''}${esc(f.namespace)}/${esc(f.pod)}:${f.container_port}</td>
     <td class="muted">${esc(f.error || '')}</td>
-    <td class="actions"><button class="sm danger" data-id="${esc(f.id)}">Stop</button></td></tr>`).join('');
+    <td class="actions">${ab('stop', 'Stop', `data-id="${esc(f.id)}"`, 'danger')}</td></tr>`).join('');
 }
 $('fwrows').addEventListener('click', async (e) => {
   const b = e.target.closest('button');

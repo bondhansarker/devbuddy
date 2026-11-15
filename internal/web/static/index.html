@@ -158,11 +158,13 @@
 
 <div id="dock" hidden><div id="dockresize" title="Drag to resize"></div><div id="dockhead"><div id="tabs"></div><button type="button" id="dockmax" class="fs" title="Full screen"></button><button type="button" id="dockmin" class="icon" title="Minimize"></button><button type="button" id="dockclose" class="icon" title="Close all tabs"></button></div><div id="panes"></div></div>
 
-<dialog id="logdetail" class="dlg"><div class="head"><strong id="ldtitle"></strong><button type="button" id="ldcopy">Copy raw</button><button type="button" id="ldclose">Close</button></div><div id="ldbody"></div></dialog>
+<dialog id="logdetail" class="dlg"><div class="head"><strong id="ldtitle"></strong><button type="button" id="ldcopy"></button><button type="button" id="ldclose"></button></div><div id="ldbody"></div></dialog>
 
-<dialog id="redisdlg" class="dlg"><div class="head"><strong id="rdtitle"></strong><button type="button" id="rdcopy">Copy value</button><button type="button" id="rddel" class="danger">Delete</button><button type="button" id="rdclose">Close</button></div><div id="rdbody"></div></dialog>
+<dialog id="redisdlg" class="dlg"><div class="head"><strong id="rdtitle"></strong><button type="button" id="rdcopy"></button><button type="button" id="rdclose"></button></div><div id="rdbody"></div></dialog>
 
-<dialog id="esdlg" class="dlg"><div class="head"><strong id="estitle"></strong><button type="button" id="escopy">Copy</button><button type="button" id="esdel" class="danger" hidden>Delete</button><button type="button" id="esclose">Close</button></div><div id="esbody"></div></dialog>
+<dialog id="esdlg" class="dlg"><div class="head"><strong id="estitle"></strong><button type="button" id="escopy"></button><button type="button" id="esclose"></button></div><div id="esbody"></div></dialog>
+
+<dialog id="askdlg" class="dlg ask"><form id="askform"><div class="head"><strong id="asktitle"></strong><button type="button" id="askx" class="icon"></button></div><div id="askbody"></div><div class="foot"><button type="button" id="askcancel">Cancel</button><button type="submit" id="askok"></button></div></form></dialog>
 
 <div id="msg" hidden></div>
 <script src="vendor/xterm.js"></script>

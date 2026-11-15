@@ -69,7 +69,7 @@ Only `name` and `addr` are required (`http://` is assumed without a scheme). Use
 - **Documents:** the box in the table header takes a Lucene query (`user:alice AND status:active`) or plain words; 50 per page with **Load more**, up to Elasticsearch's 10,000 result window. **View** shows the full document as JSON.
 - **Indices:** name, health, docs, size and shards with a name filter; **Documents** jumps to that index, **Mapping** shows its mapping.
 - **Query:** read-only REST calls: any `GET`, and `POST` on `_search`, `_count`, `_msearch`, `_mget`, `_analyze` and similar. `PUT`, `DELETE`, `_bulk`, `_update` and the like are refused there, always: the Query tab never writes.
-- **Delete:** the Documents tab has a **Delete** button per row and in the document dialog, and checkboxes with **Delete selected**. Each document is deleted by index and id from the exact index it was listed in (never by pattern or wildcard, up to 500 at once), after a confirmation. `read_only: true` removes every delete control and the server refuses the request. A deleted document can still show in searches for about a second, and disk space returns later when Elasticsearch merges segments. Your user or API key needs `delete` rights on the index.
+- **Delete:** the Documents tab has a **Delete** button per row, and checkboxes with **Delete selected**. Each document is deleted by index and id from the exact index it was listed in (never by pattern or wildcard, up to 500 at once), after a confirmation. `read_only: true` removes every delete control and the server refuses the request. A deleted document can still show in searches for about a second, and disk space returns later when Elasticsearch merges segments. Your user or API key needs `delete` rights on the index.
 
 ## Project layout
 
@@ -89,6 +89,6 @@ scripts/build-all.sh builds macOS and Linux binaries into dist/
 
 ## Security
 
-No authentication, and a shell is full access to whatever your kubeconfig can reach; the Redis page can delete any key on the configured servers and the Elasticsearch page can delete documents (both are off with `read_only: true`). It listens on loopback only (`--insecure-bind` overrides it; don't), refuses cross-origin browser requests, and `read_only: true` is advised for production. Config files are gitignored.
+No authentication, and a shell is full access to whatever your kubeconfig can reach; the Redis page can delete any key on the configured servers and the Elasticsearch page can delete documents (both are off with `read_only: true`). It listens on loopback only (`--insecure-bind` overrides it; don't), refuses cross-origin browser requests and any request whose `Host` is not localhost (a guard against DNS rebinding), and `read_only: true` is advised for production. Config files are gitignored.
 
 [MIT](LICENSE). `internal/web/static/vendor/` is xterm.js (MIT).

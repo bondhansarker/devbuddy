@@ -129,3 +129,42 @@ func TestCrossOriginRefused(t *testing.T) {
 		t.Fatalf("same origin want 200, got %d", w.Code)
 	}
 }
+
+func TestHostHeaderGuard(t *testing.T) {
+	h := newServer(config.Config{Addr: "127.0.0.1:9100", RefreshSeconds: 5, LogTail: 200})
+	get := func(host string) int {
+		r := httptest.NewRequest("GET", "/api/namespaces", nil)
+		r.Host = host
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w.Code
+	}
+	for _, ok := range []string{"127.0.0.1:9100", "localhost:9100", "localhost", "[::1]:9100", "127.0.0.1"} {
+		if c := get(ok); c != 200 {
+			t.Errorf("Host %q want 200, got %d", ok, c)
+		}
+	}
+	for _, bad := range []string{"evil.example:9100", "evil.example", "127.0.0.1.evil.example:9100", "10.0.0.5:9100", ""} {
+		if c := get(bad); c != 403 {
+			t.Errorf("Host %q want 403, got %d", bad, c)
+		}
+	}
+	// a rebinding page also passes the Origin check (same Host and Origin): the Host guard is what stops it
+	r := httptest.NewRequest("GET", "/api/namespaces", nil)
+	r.Host = "evil.example:9100"
+	r.Header.Set("Origin", "http://evil.example:9100")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 403 {
+		t.Errorf("rebinding request want 403, got %d", w.Code)
+	}
+	// bound to the network on purpose (--insecure-bind): any Host is fine
+	open := newServer(config.Config{Addr: "0.0.0.0:9100", RefreshSeconds: 5, LogTail: 200})
+	r = httptest.NewRequest("GET", "/api/namespaces", nil)
+	r.Host = "192.168.1.5:9100"
+	w = httptest.NewRecorder()
+	open.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Errorf("non-loopback bind want 200, got %d", w.Code)
+	}
+}

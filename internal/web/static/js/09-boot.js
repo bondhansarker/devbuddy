@@ -27,3 +27,5 @@ $('sidetoggle').onclick = () => setSide(!document.body.classList.contains('colla
     setInterval(() => { if (!document.hidden) { if (view !== 'forwards' && !busy[view]) load(view); loadForwards(); } }, settings.refresh_seconds * 1000);
   } catch (e) { toast(e.message); }
 })();
+
+[['ldcopy', 'ldclose'], ['rdcopy', 'rdclose'], ['escopy', 'esclose']].forEach(([c, x]) => dlgIcons(c, x));

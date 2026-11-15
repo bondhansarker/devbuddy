@@ -109,15 +109,15 @@ function renderLine(raw) {
   d.innerHTML = d._html = h;
   return d;
 }
-// A clicked line opens in a modal: the fields of a JSON log as a table, else the plain text, and the raw line.
+// A clicked line opens in a modal: JSON (also inside string fields) indented, anything else as plain text.
 function showLogDetail(raw) {
   const p = parseLog(raw);
-  const cell = (v) => `<pre>${esc(typeof v === 'string' ? v : JSON.stringify(v, null, 2))}</pre>`;
-  const rows = [['timestamp', p.ts], ['source', p.src], ...(p.obj ? Object.entries(p.obj) : [['message', p.rest]])].filter(([, v]) => v !== '');
-  $('ldbody').innerHTML = `<table>${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${cell(v)}</td></tr>`).join('')}</table>
-    <h4>Raw</h4><pre>${esc(raw)}</pre>`;
+  let body = p.rest;
+  if (/^[{[]/.test(p.rest.trim())) { try { body = prettyJson(JSON.parse(p.rest)); } catch {} }
+  const meta = [p.ts, p.src].filter(Boolean).join(' · ');
+  $('ldbody').innerHTML = `${meta ? `<p class="muted">${esc(meta)}</p>` : ''}<pre>${esc(body)}</pre>`;
   $('ldtitle').innerHTML = p.level ? pill(p.level, levelClass(p.level) === 'err' ? 'bad' : '') : 'Log entry';
-  $('ldcopy').onclick = () => navigator.clipboard.writeText(raw).then(() => toast('copied'), () => toast('copy failed'));
+  $('ldcopy').onclick = () => navigator.clipboard.writeText(body).then(() => toast('copied'), () => toast('copy failed'));
   $('logdetail').showModal();
 }
 $('ldclose').onclick = () => $('logdetail').close();
@@ -273,10 +273,13 @@ function openLogs(p, container, kind = 'pods') {
 
 // ---- shell (WebSocket + xterm.js)
 // The shell keeps running on the server when this page goes away; closing the tab ends it.
-function openShell(p, container) {
+async function openShell(p, container) {
   if (!container && !tabs.has(`shell:${p.cluster}/${p.namespace}/${p.name}`)) {
     container = p.containers[0];
-    if (p.containers.length > 1) container = prompt(`Container of ${p.name} (${p.containers.join(', ')})`, container); // a pod with several containers: ask
+    if (p.containers.length > 1) { // a pod with several containers: ask
+      const r = await ask({ title: `Shell in ${p.name}`, fields: [{ name: 'c', label: 'Container', type: 'select', options: p.containers, value: container }], ok: 'Open shell' });
+      container = r?.c;
+    }
     if (!container) return;
     ktoast(p, p.namespace, `exec -it ${p.name} -c ${container} -- sh`);
   }
@@ -347,8 +350,8 @@ function setMin(on) {
 }
 $('dockmin').innerHTML = ICON_MIN; $('dockclose').innerHTML = ICON_CLOSE;
 $('dockmin').onclick = () => setMin(!$('dock').classList.contains('min'));
-$('dockclose').onclick = () => {
-  if (tabs.size > 1 && !confirm(`Close all ${tabs.size} tabs? Open shells end.`)) return;
+$('dockclose').onclick = async () => {
+  if (tabs.size > 1 && !await askConfirm(`Close all ${tabs.size} tabs? Open shells end.`, { title: 'Close all tabs', ok: 'Close all', danger: true })) return;
   [...tabs.keys()].forEach(closeTab);
   setFull(false); setMin(false);
 };
