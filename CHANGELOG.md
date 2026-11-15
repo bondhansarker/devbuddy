@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
+
+First release.
 
 - Renamed to **DevBuddy**.
 - Kubernetes is its own section with several connections (`kubernetes` list in the config) and a Clusters page: nothing connects until you press Connect or switch a cluster on in the sidebar; each cluster is a parent node (with an on/off switch) whose pages are its children, with its own lists.
@@ -15,10 +17,6 @@
 - UI: icons, in-app dialogs instead of browser pop-ups, JSON shown indented everywhere, minimize / close for the console dock.
 - Security: requests whose `Host` is not localhost are refused (DNS rebinding guard); the `--insecure-bind` flag is gone, so the listener is always loopback.
 - Removed: the old single-cluster config keys (`kubeconfig` / `context` at the top level: use the `kubernetes` list), the Namespaces page (use the namespace filter), the Pods Images and Services External IP columns (shown as tooltips), the sidebar's Cluster line, and the committed `dist/` binaries (they are built with `scripts/build-all.sh` and attached to releases).
-
-## 0.1.0
-
-First release.
 
 - Lists for namespaces, services, deployments, jobs and pods across all namespaces, with namespace, status, owner and text filters.
 - Logs and shell in a bottom dock (one tab per pod, resizable, full screen, restored after a reload); shells keep running on the server and re-attach after a page refresh.
