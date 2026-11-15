@@ -175,3 +175,87 @@ nav .grp .pill { flex:none; } nav .grp .gn { min-width:0; overflow:hidden; text-
 /* three levels: the group heading, its connections one step in, their pages one step further */
 nav .gbody { margin:2px 0 4px 10px; padding-left:6px; border-left:1px solid var(--line-soft); }
 body.collapsed nav .gbody { margin:0; padding:0; border-left:none; }
+
+/* tree look: icon, name, switch, chevron on the right; open parent greyed; children on a guide line */
+nav .knh { padding-right:8px; } nav .kn.open > .knh { background:var(--panel); }
+nav .kname { padding:9px 6px 9px 10px; gap:10px; } nav .kname .ico, nav button.kc .ico { display:inline-flex; background:none; color:var(--muted); font-size:13px; width:20px; }
+nav .knh .sw { margin:0 8px 0 0; } nav .knh .chev { margin-left:0; width:14px; text-align:center; padding:2px; font-size:15px; }
+nav .kids { margin:2px 0 4px 20px; padding-left:8px; border-left:1px solid var(--line); }
+nav button.kc { padding:9px 10px; gap:10px; }
+nav button.kc.on { background:var(--panel); color:var(--fg); font-weight:600; } nav button.kc.on .ico { color:var(--accent); }
+body.collapsed nav .knh .chev { display:none; }
+nav .ico svg { display:block; } nav > div > .gbody > button[data-view] { padding:9px 10px; } nav .gbody > button[data-view] .ico { display:inline-flex; background:none; color:var(--muted); width:20px; }
+nav button.on .ico { background:none; color:var(--accent); }
+body.collapsed nav button.on .ico { background:none; }
+nav .chev svg, nav .gt svg { display:block; transition:transform .15s; } nav .chev { display:inline-flex; width:20px; height:20px; align-items:center; justify-content:center; border-radius:5px; padding:0; } nav .chev:hover { background:var(--line-soft); color:var(--fg); } nav .chev.up svg { transform:rotate(180deg); }
+nav .grp .gt { display:inline-flex; align-items:center; } nav .grp .gt svg { width:14px; height:14px; } nav .grp .gt.shut svg { transform:rotate(-90deg); }
+nav .grp .gi { display:inline-flex; vertical-align:-3px; margin-right:6px; } nav .grp .gi svg { width:15px; height:15px; } body.collapsed nav .grp .gn { display:none; }
+nav .grp .gn { letter-spacing:.03em; } nav .grp .gi { margin-right:4px; }
+/* collapsed sidebar: only the three group icons */
+body.collapsed nav .gbody { display:none; }
+body.collapsed nav .grp, body.collapsed nav .grp.first { display:flex; justify-content:center; margin:6px 0; padding:0; border-top:none; }
+body.collapsed nav .grp .gn { display:flex; justify-content:center; width:100%; padding:9px 0; font-size:0; letter-spacing:0; border-radius:8px; }
+body.collapsed nav .grp .gn:hover { background:var(--panel); } body.collapsed nav .grp .gn.on { background:var(--accent-bg); color:var(--accent); }
+body.collapsed nav .grp .gi { display:inline-flex; margin:0; } body.collapsed nav .grp .gi svg { width:20px; height:20px; }
+body.collapsed nav .grp .pill, body.collapsed nav .grp .gt { display:none; }
+nav .kname { padding-left:12px; }
+/* ---- sidebar rhythm: 4px grid, 36px parent rows, 32px page rows, 16px icons, one guide line ---- */
+nav { gap:0; }
+nav .grp { gap:8px; margin:18px 4px 4px; padding:14px 0 0; font-size:11px; letter-spacing:.08em; }
+nav .grp.first { margin-top:4px; padding-top:0; }
+nav .grp .gn { order:1; flex:1; text-align:left; padding:2px 0; letter-spacing:.08em; display:flex; align-items:center; gap:8px; }
+nav .grp .gi { margin:0; } nav .grp .gi svg { width:16px; height:16px; }
+nav .grp .pill { order:2; padding:0 8px; font-size:11px; line-height:18px; }
+nav .grp .gt { order:3; width:20px; height:20px; padding:0; border-radius:5px; justify-content:center; } nav .grp .gt:hover { background:var(--line-soft); }
+nav .gbody { margin:2px 0 0; padding-left:0; border-left:none; }
+nav .kn { margin:2px 0; }
+nav .knh { min-height:36px; padding-right:6px; border-radius:8px; }
+nav .kname { padding:6px 4px 6px 12px; font-weight:500; font-size:13.5px; }
+nav .knh.idle .kname { font-weight:400; }
+nav .knh .sw { width:28px; height:16px; margin:0 6px 0 0; } nav .sw i { width:10px; height:10px; } nav .sw.connected i { left:14px; }
+nav .kids { margin:2px 0 4px 18px; padding-left:6px; border-left:1px solid var(--line); }
+nav button.kc, nav .gbody > button[data-view] { min-height:32px; padding:5px 10px; gap:10px; font-size:13.5px; line-height:1.3; }
+nav .gbody > button[data-view] { width:100%; margin-top:2px; }
+nav .ico { width:16px; height:16px; } nav .ico svg { width:16px; height:16px; }
+nav .n { min-width:20px; height:20px; font-size:11px; }
+.ddpanel .ddq { position:sticky; top:-6px; z-index:1; display:block; width:calc(100% - 8px); margin:-6px 4px 6px; padding:7px 10px; height:auto; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; box-shadow:0 -6px 0 var(--bg); }
+.discall { display:flex; align-items:center; gap:10px; margin:12px 4px 0; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:none; color:var(--muted); font:inherit; font-size:13px; cursor:pointer; }
+.discall:hover { color:var(--danger); border-color:var(--danger); } .discall[hidden] { display:none; }
+body.collapsed .discall { justify-content:center; padding:9px 0; margin:12px 0 0; } body.collapsed .discall span { display:none; }
+.brand .logo { display:inline-flex; color:var(--fg); } .brand .t { flex:1; margin-left:-2px; }
+body.collapsed .brand { flex-direction:column; gap:12px; } body.collapsed .brand .logo svg { width:28px; height:24px; }
+/* collapsed: logo tile on top, the three icons, power at the bottom; the toggle floats at the top of the page */
+#sidetoggle { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border:none; background:none; color:var(--muted); border-radius:8px; } #sidetoggle:hover { background:var(--panel); color:var(--fg); }
+@media (min-width: 801px) {
+  body.collapsed .brand { position:static; display:block; padding:0; }
+  body.collapsed .brand .logo { display:flex; align-items:center; justify-content:center; width:44px; height:44px; margin:0 auto; border-radius:12px; background:#2547d9; color:#fff; }
+  body.collapsed .brand .logo svg { width:28px; height:24px; }
+  body.collapsed #sidetoggle { position:fixed; z-index:6; top:22px; left:calc(var(--side) + 18px); }
+  body.collapsed .topbar { padding-left:44px; min-height:32px; }
+  body.collapsed aside { gap:14px; }
+  body.collapsed .discall { margin:auto 0 0; border:none; width:100%; padding:11px 0; } body.collapsed .discall svg { width:20px; height:20px; }
+  body.collapsed nav .grp .gn { padding:11px 0; } body.collapsed nav .grp .gi svg { width:22px; height:22px; }
+}
+/* the toggle lives outside the sidebar, top-left of the page, open or collapsed; the brand is a logo tile + name */
+@media (min-width: 801px) {
+  #sidetoggle { position:fixed; z-index:6; top:22px; left:calc(var(--side) + 18px); }
+  .topbar { padding-left:44px; min-height:32px; }
+  .brand { justify-content:flex-start; gap:12px; padding:0 4px; }
+  .brand .logo { display:flex; align-items:center; justify-content:center; width:44px; height:44px; flex:none; border-radius:12px; background:#2547d9; color:#fff; }
+  .brand .logo svg { width:28px; height:24px; }
+  .brand .t { flex:1; margin:0; line-height:1.25; font-size:15px; } .brand .t small { display:block; font-weight:400; font-size:12px; color:var(--muted); }
+  body.collapsed .brand { display:block; padding:0; } body.collapsed .brand .logo { margin:0 auto; }
+}
+.brand .t { color:var(--fg); } .brand .t small { color:var(--muted); }
+/* logo stays plain black / white (follows the text colour) */
+.brand .logo, body.collapsed .brand .logo { background:none; color:var(--fg); border-radius:0; } .brand .logo svg { width:36px; height:31px; }
+/* group status: a dot, green while something is connected */
+nav .grp .pill { width:8px; height:8px; padding:0; border:none; border-radius:50%; background:var(--line); font-size:0; line-height:0; margin-right:2px; }
+nav .grp .pill.ok { background:var(--ok); }
+#msg.cmd { font:12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* toasts use the empty space at the top right of the page */
+#msg { bottom:auto; top:20px; right:28px; left:auto; transform:none; max-width:min(52vw, 860px); }
+button.sm:has(> svg) { display:inline-flex; align-items:center; gap:6px; } button.sm > svg { width:14px; height:14px; flex:none; }
+.tab .tl { display:inline-flex; align-items:center; gap:6px; } .tab .tl svg { width:14px; height:14px; flex:none; }
+#dockhead .icon { margin:0 2px; flex:none; } #dockhead .icon:last-child { margin-right:8px; } #dockhead .icon svg { width:16px; height:16px; }
+#dock.min { height:auto; } #dock.min #panes, #dock.min #dockresize { display:none; } body.docked.docked-min .content { padding-bottom:70px; }

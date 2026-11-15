@@ -4,7 +4,6 @@
 // ---- sidebar: expanded or collapsed to the icons, remembered
 function setSide(collapsed) {
   document.body.classList.toggle('collapsed', collapsed);
-  $('sidetoggle').textContent = collapsed ? '»' : '«';
   try { localStorage.setItem('k8ui.side', collapsed ? '1' : ''); } catch {}
 }
 try { setSide(!!localStorage.getItem('k8ui.side')); } catch {}
