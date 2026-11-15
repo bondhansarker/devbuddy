@@ -182,3 +182,4 @@ $('discall').onclick = () => {
     .then(() => toast('connections switched back on'));
 };
 syncPower();
+$('ldbody').addEventListener('click', (e) => { const c = e.target.closest('.url'); if (c) copyUrl(c); }); // URL chips in the detail window copy too

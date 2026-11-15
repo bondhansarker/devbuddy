@@ -95,6 +95,67 @@ function highlight(d, q) {
     n.replaceWith(f);
   }
 }
+
+// ---- URLs in logs, by direction. Blue = this app's own: the route a request came in on (the uri / path of a
+// request log, with the host it was addressed to) and anything on localhost. Yellow = a call the app makes to another
+// service inside the cluster (*.svc, *.cluster.local, a bare service name, a private address); purple = a call that
+// leaves the cluster for the internet. The tag says which too. A click copies (it never opens a URL); credentials inside a URL are left out of the chip and the copy.
+const URL_RE = /\bhttps?:\/\/[^\s"'<>\\`]+/gi;
+const URL_KEYS = new Set(['url', 'endpoint', 'target', 'host', 'hostname', 'upstream', 'origin', 'referer', 'referrer', 'remote_addr', 'server', 'service', 'base_url', 'baseurl', 'api', 'address', 'dest', 'destination']);
+const ROUTE_KEYS = new Set(['uri', 'path', 'route', 'request_uri', 'request_path', 'req_uri', 'req_path']); // a value starting with / is a route of this app
+const HOST_KEYS = new Set(['host', 'hostname', 'authority']);
+const BARE_HOST = /^[a-z0-9-]+(\.[a-z0-9-]+)*(:\d+)?$/i;
+const PRIVATE_HOST = [/^10\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./, /^169\.254\./, /^(fc|fd)[0-9a-f]{2}:/i, /^fe80:/i];
+// local = this machine; service = inside the cluster or a private network; external = the internet
+function urlKind(host) {
+  let h = host.toLowerCase();
+  if (h.startsWith('[')) h = h.slice(1, h.indexOf(']')); // [::1]:9000
+  else if ((h.match(/:/g) || []).length === 1) h = h.replace(/:\d+$/, ''); // name:port (a bare IPv6 literal has several colons)
+  if (!h || h === 'localhost' || h === '::1' || /^127\./.test(h) || h === '0.0.0.0') return 'local';
+  if (!h.includes('.') && !h.includes(':')) return 'service'; // a bare name such as "auth": a cluster service
+  if (PRIVATE_HOST.some((r) => r.test(h)) || /\.(local|internal|localhost|lan|cluster\.local)$/.test(h) || /\.svc(\.|$)/.test(h)) return 'service';
+  return 'external';
+}
+const KIND_TIP = { local: 'this app (localhost)', service: 'a call to an internal service', external: 'a call to an external service', route: "a route of this app", host: 'the host this app was addressed as' };
+const trimUrl = (u) => u.replace(/[)\].,;:!?}]+$/, '');
+const chipTag = (cls, kind, copy, inner) => `<span class="url ${cls}" data-url="${esc(copy)}" data-kind="${kind}" title="${KIND_TIP[kind]} · ${esc(copy)} · click to copy">${inner}</span>`;
+const shorten = (t, max) => (t.length > max ? t.slice(0, Math.max(8, max)) + '…' : t);
+// a URL: scheme grey, host bold, path plain. max shortens what is shown (the copy keeps the whole URL)
+function urlChip(u, max = 70) {
+  const m = u.match(/^(https?:\/\/)?(?:[^\/?#@]*@)?([^\/?#]+)(.*)$/i); // the scheme is optional: a bare host such as "api.stripe.com:443" in a host field
+  if (!m) return esc(u);
+  const scheme = m[1] || '', host = m[2], rest = m[3], kind = urlKind(host);
+  return chipTag(kind === 'local' ? 'own' : kind === 'external' ? 'ext' : 'call', kind, scheme + host + rest, `<i>${esc(scheme)}</i><b>${esc(host)}</b>${esc(shorten(rest, max - host.length - scheme.length))}`);
+}
+// a route of this app (the uri / path of a request log)
+const routeChip = (path, max = 70) => chipTag('own', 'route', path, `<b>${esc(shorten(path, max))}</b>`);
+// the host a request was addressed to: this app
+const ownHostChip = (host) => chipTag('own', 'host', host, `<b>${esc(host)}</b>`);
+// text with its URLs as chips; everything else escaped
+function linkify(text, max) {
+  const t = String(text);
+  let out = '', last = 0, m;
+  URL_RE.lastIndex = 0;
+  while ((m = URL_RE.exec(t))) {
+    const u = trimUrl(m[0]);
+    out += esc(t.slice(last, m.index)) + urlChip(u, max);
+    last = m.index + u.length;
+    URL_RE.lastIndex = last;
+  }
+  return out + esc(t.slice(last));
+}
+// a request log (it came in on a route of this app): some uri / path field holds a path
+const isInbound = (obj) => Object.entries(obj).some(([k, v]) => ROUTE_KEYS.has(k.toLowerCase()) && typeof v === 'string' && v.startsWith('/'));
+// one JSON field: a route, the host a request was addressed to, a bare host that is being called, or a URL inside the text
+function fieldHtml(key, value, inbound) {
+  const k = key.toLowerCase(), t = typeof value === 'string' ? value : JSON.stringify(value);
+  if (typeof value === 'string') {
+    if (ROUTE_KEYS.has(k) && t.startsWith('/')) return routeChip(t);
+    if (inbound && HOST_KEYS.has(k) && BARE_HOST.test(t)) return ownHostChip(t);
+    if (URL_KEYS.has(k) && !/^https?:\/\//i.test(t) && BARE_HOST.test(t) && (t.includes('.') || t.includes(':') || t === 'localhost')) return urlChip(t);
+  }
+  return /https?:\/\//i.test(t) ? linkify(t) : esc(short(value));
+}
 function renderLine(raw) {
   const p = parseLog(raw), d = document.createElement('div');
   d._raw = raw;
@@ -103,20 +164,25 @@ function renderLine(raw) {
   let h = p.ts ? `<span class="ts">${esc(p.ts)}</span>` : '';
   if (p.src) h += `<span class="src" style="color:hsl(${[...p.src].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)} 70% 70%)">${esc(p.src)}</span>`;
   if (p.obj) {
-    const skip = new Set([p.lvKey, p.msgKey]);
-    h += (p.level ? `<span class="lv">${esc(p.level)}</span>` : '') + (p.msgKey ? `<span class="msg">${esc(p.obj[p.msgKey])}</span>` : '') +
-      Object.entries(p.obj).filter(([k]) => !skip.has(k)).map(([k, v]) => ` <span class="kv">${esc(k)}=${esc(short(v))}</span>`).join('');
-  } else h += esc(p.rest);
+    const skip = new Set([p.lvKey, p.msgKey]), inbound = isInbound(p.obj);
+    h += (p.level ? `<span class="lv">${esc(p.level)}</span>` : '') + (p.msgKey ? `<span class="msg">${linkify(p.obj[p.msgKey])}</span>` : '') +
+      Object.entries(p.obj).filter(([k]) => !skip.has(k)).map(([k, v]) => ` <span class="kv">${esc(k)}=${fieldHtml(k, v, inbound)}</span>`).join('');
+  } else h += linkify(p.rest);
   d.innerHTML = d._html = h;
   return d;
 }
 // A clicked line opens in a modal: JSON (also inside string fields) indented, anything else as plain text.
+const copyUrl = (c) => navigator.clipboard.writeText(c.dataset.url).then(() => toast(`copied ${c.dataset.kind} URL`), () => toast('copy failed'));
 function showLogDetail(raw) {
   const p = parseLog(raw);
   let body = p.rest;
   if (/^[{[]/.test(p.rest.trim())) { try { body = prettyJson(JSON.parse(p.rest)); } catch {} }
   const meta = [p.ts, p.src].filter(Boolean).join(' · ');
-  $('ldbody').innerHTML = `${meta ? `<p class="muted">${esc(meta)}</p>` : ''}<pre>${esc(body)}</pre>`;
+  const urls = [...new Set((body.match(URL_RE) || []).map(trimUrl))];
+  const own = [];
+  if (p.obj) { const inbound = isInbound(p.obj); Object.entries(p.obj).forEach(([k, v]) => { if (typeof v !== 'string') return; if (ROUTE_KEYS.has(k.toLowerCase()) && v.startsWith('/')) own.push(routeChip(v, 200)); else if (inbound && HOST_KEYS.has(k.toLowerCase()) && BARE_HOST.test(v)) own.push(ownHostChip(v)); }); }
+  const chips = [...own, ...urls.map((u) => urlChip(u, 200))];
+  $('ldbody').innerHTML = `${meta ? `<p class="muted">${esc(meta)}</p>` : ''}${chips.length ? `<div class="urls">${chips.join(' ')}</div>` : ''}<pre>${linkify(body, 400)}</pre>`;
   $('ldtitle').innerHTML = p.level ? pill(p.level, levelClass(p.level) === 'err' ? 'bad' : '') : 'Log entry';
   $('ldcopy').onclick = () => navigator.clipboard.writeText(body).then(() => toast('copied'), () => toast('copy failed'));
   $('logdetail').showModal();
@@ -247,6 +313,7 @@ function openLogs(p, container, kind = 'pods') {
       };
       ['.c', '.tail', '.ts', '.prev', '.since'].forEach((s) => ($$(s).onchange = run));
       $$('.lvl').onchange = () => { lines.forEach((d) => (d.hidden = !lvOk(d))); refresh(); };
+      box.onclick = (e) => { const c = e.target.closest('.url'); if (c && e.detail === 1) copyUrl(c); };
       box.ondblclick = (e) => {
         const d = e.target.closest('.line');
         if (d) { getSelection().removeAllRanges(); showLogDetail(d._raw); } // the double click also selected a word
