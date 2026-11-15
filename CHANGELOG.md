@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Renamed to **DevBuddy**.
-- Kubernetes is its own section with several connections (`kubernetes` list in the config); with none, the Kubernetes pages show "not connected" and Redis / Elasticsearch still work.
+- Kubernetes is its own section with several connections (`kubernetes` list in the config) and a Connections page: nothing connects until you press Connect, and each connected cluster is a sidebar node with its own pages and lists.
 - Redis page (keys, console) and a read-only-by-default Elasticsearch / OpenSearch viewer.
 
 ## 0.1.0

@@ -16,12 +16,10 @@ $('sidetoggle').onclick = () => setSide(!document.body.classList.contains('colla
     const info = await api('/api/info');
     settings = info;
     clusters = info.clusters;
-    let saved = '';
-    try { saved = localStorage.getItem('k8ui.cluster') || ''; } catch {}
-    cluster = clusters.some((c) => c.name === saved) ? saved : clusters[0]?.name ?? '';
+    clusters.forEach((c) => (kstate[c.name] = { status: c.error ? 'failed' : 'idle', error: c.error || '' })); // nothing is contacted yet
     syncKubernetes();
-    showView('namespaces'); // loads it when Kubernetes is connected, else says it is not
-    if (kOk) loadAll().then(() => { restoreShells(); restoreLogTabs(); });
+    renderKNav();
+    showView('kconns'); // the connection list: you connect, nothing does it for you
     initRedis();
     initEs();
     loadForwards();

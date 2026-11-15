@@ -12,9 +12,21 @@ const jobCell = (r) => {
   return `<td class="actions"><button type="button" class="sm" data-w="logs" data-k="${k}">Logs</button>${settings.read_only ? '' : `<button type="button" class="sm" data-w="trigger" data-k="${k}" title="Run this job again as a new job">Trigger</button><button type="button" class="sm danger" data-w="delete" data-k="${k}">Delete</button>`}</td>`;
 };
 // ---- Kubernetes connections: several can be configured; every k8s call carries ?cluster=
-let clusters = [], cluster = '', kOk = false, kWhy = '';
-const K8S_VIEWS = ['namespaces', 'services', 'deployments', 'jobs', 'pods', 'forwards'];
-const kq = (path, c = cluster) => `${path}${path.includes('?') ? '&' : '?'}cluster=${encodeURIComponent(c)}`;
+let clusters = [], cluster = '', kOk = false, kWhy = ''; // cluster = the active connection ('' = none)
+const kstate = {};  // connection name -> { status: idle | connecting | connected | failed, version, ms, error }
+const kstore = {};  // connection name -> its own lists, namespace filter and status/owner filters
+const kbadges = {}; // connection name -> { view: count } shown in the sidebar
+const K8S_VIEWS = ['namespaces', 'services', 'deployments', 'jobs', 'pods']; // pages that need an active connection
+const K_PAGES = [['namespaces', 'Namespaces', 'N'], ['services', 'Services', 'S'], ['deployments', 'Deployments', 'D'], ['jobs', 'Jobs', 'J'], ['pods', 'Pods', 'P']];
+function setBadge(v, n) {
+  (kbadges[cluster] ??= {})[v] = n;
+  const el = document.querySelector(`#knav .kn[data-kc="${CSS.escape(cluster)}"] [data-badge="${v}"]`);
+  if (el) el.textContent = n;
+}
+const kq = (path, c = cluster) => {
+  if (!c) throw new Error('no Kubernetes connection is active'); // never fall back to "the first one": nothing connects by itself
+  return `${path}${path.includes('?') ? '&' : '?'}cluster=${encodeURIComponent(c)}`;
+};
 const tag = (rows, c = cluster) => rows.map((r) => ({ ...r, cluster: c })); // every object remembers the connection it came from
 const clusterInfo = () => clusters.find((c) => c.name === cluster);
 // One entry per plain list view; pods have their own actions below.
@@ -37,7 +49,7 @@ const LISTS = {
       <td class="num">${r.active}</td><td class="num">${r.failed}</td><td>${pill(r.status, r.status === 'Complete' ? 'ok' : r.status === 'Failed' ? 'bad' : '')}</td><td>${esc(r.age)}</td>${jobCell(r)}` },
 };
 const emptyText = (n) => (n ? 'nothing matches the filter' : 'nothing here');
-const data = { namespaces: [], services: [], deployments: [], jobs: [] };
+let data = { namespaces: [], services: [], deployments: [], jobs: [] }; // the lists of the ACTIVE connection (each connection keeps its own: see kstore)
 let view = 'namespaces';
 
 // loadNamespaces keeps the working namespace valid.
@@ -113,9 +125,9 @@ function render(v) {
   const L = LISTS[v];
   if (!L) return;
   const all = data[v], rows = all.filter((r) => match(L.text(r)));
-  $(L.badge).textContent = all.length;
+  setBadge(v, all.length);
   $(L.body).innerHTML = rows.length
-    ? page(v, rows, q() + '|' + nsKey()).map((r) => `<tr>${L.row(r)}</tr>`).join('') + moreRow(v, rows.length, L.cols)
+    ? page(v, rows, cluster + '|' + q() + '|' + nsKey()).map((r) => `<tr>${L.row(r)}</tr>`).join('') + moreRow(v, rows.length, L.cols)
     : `<tr><td colspan="${L.cols}" class="muted">${emptyText(all.length)}</td></tr>`;
 }
 
@@ -180,8 +192,8 @@ function renderPods() {
     (!statusSel.selected.length || statusSel.selected.includes(p.phase)) &&
     (!ownerSel.selected.length || ownerSel.selected.includes(p.owner_kind ?? NO_OWNER)) &&
     match([p.name, p.namespace, p.phase, p.owner_kind ?? '', ...p.images]));
-  $('podcount').textContent = pods.length;
-  const sig = [q(), nsKey(), statusSel.selected, ownerSel.selected].join('|');
+  setBadge('pods', pods.length);
+  const sig = [cluster, q(), nsKey(), statusSel.selected, ownerSel.selected].join('|');
   $('pods').innerHTML = rows.length
     ? page('pods', rows, sig).map(([p, i]) => `<tr>
         <td class="name">${esc(p.name)}</td><td>${esc(p.namespace)}</td>
