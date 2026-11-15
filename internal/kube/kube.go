@@ -15,6 +15,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// cachedList asks the API server to answer from its watch cache (resourceVersion=0) instead of a quorum read
+// from etcd: the lists are polled, so a cheap answer that may be about a second old is the right trade.
+var cachedList = metav1.ListOptions{ResourceVersion: "0"}
+
 type Client struct {
 	cs      kubernetes.Interface
 	cfg     *rest.Config
@@ -77,7 +81,7 @@ type Namespace struct {
 }
 
 func (c *Client) Namespaces(ctx context.Context) ([]Namespace, error) {
-	l, err := c.cs.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	l, err := c.cs.CoreV1().Namespaces().List(ctx, cachedList)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +94,7 @@ func (c *Client) Namespaces(ctx context.Context) ([]Namespace, error) {
 }
 
 func (c *Client) Pods(ctx context.Context, ns string) ([]Pod, error) {
-	l, err := c.cs.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	l, err := c.cs.CoreV1().Pods(ns).List(ctx, cachedList)
 	if err != nil {
 		return nil, err
 	}

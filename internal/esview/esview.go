@@ -30,10 +30,11 @@ var (
 )
 
 const (
-	maxBody     = 8 << 20 // bytes read back from a cluster
-	maxSize     = 200     // documents per search page
-	maxReqBody  = 1 << 20 // bytes accepted for a console request body
-	maxFromSize = 10000   // Elasticsearch's default result window
+	maxBody      = 8 << 20 // bytes read back from a cluster
+	maxSize      = 200     // documents per search page
+	maxReqBody   = 1 << 20 // bytes accepted for a console request body
+	maxFromSize  = 10000   // Elasticsearch's default result window
+	maxTotalHits = 10000   // the count stops here (the UI shows "≥ 10,000"): an exact count over a big index is costly
 )
 
 type Instance struct {
@@ -243,7 +244,7 @@ func (m *Manager) Search(ctx context.Context, name, index, q string, from, size 
 	if from < 0 || from+size > maxFromSize {
 		return SearchResult{}, fmt.Errorf("%w: results are limited to the first %d (narrow the search)", ErrBadArg, maxFromSize)
 	}
-	body := map[string]any{"from": from, "size": size, "track_total_hits": true}
+	body := map[string]any{"from": from, "size": size, "track_total_hits": maxTotalHits}
 	if strings.TrimSpace(q) == "" {
 		body["query"] = map[string]any{"match_all": map[string]any{}}
 	} else {

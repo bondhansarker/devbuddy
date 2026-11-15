@@ -25,7 +25,7 @@ type Service struct {
 }
 
 func (c *Client) Services(ctx context.Context, ns string) ([]Service, error) {
-	l, err := c.cs.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
+	l, err := c.cs.CoreV1().Services(ns).List(ctx, cachedList)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ type Deployment struct {
 }
 
 func (c *Client) Deployments(ctx context.Context, ns string) ([]Deployment, error) {
-	l, err := c.cs.AppsV1().Deployments(ns).List(ctx, metav1.ListOptions{})
+	l, err := c.cs.AppsV1().Deployments(ns).List(ctx, cachedList)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ type Job struct {
 }
 
 func (c *Client) Jobs(ctx context.Context, ns string) ([]Job, error) {
-	l, err := c.cs.BatchV1().Jobs(ns).List(ctx, metav1.ListOptions{})
+	l, err := c.cs.BatchV1().Jobs(ns).List(ctx, cachedList)
 	if err != nil {
 		return nil, err
 	}
