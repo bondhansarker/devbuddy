@@ -9,7 +9,7 @@ function syncKubernetes() {
   const ci = clusterInfo();
   const n = clusters.filter((c) => kstate[c.name]?.status === 'connected').length;
   kOk = !!ci && kstate[ci.name]?.status === 'connected';
-  kWhy = 'No Kubernetes connection is active. Open Connections and press Connect.';
+  kWhy = 'No Kubernetes cluster is connected. Open Clusters and press Connect, or switch one on in the sidebar.';
   $('kpill').textContent = n ? `${n} connected` : 'not connected';
   $('kpill').className = 'pill ' + (n ? 'ok' : '');
   $('kconncount').textContent = n || '';
@@ -28,13 +28,16 @@ function syncK8sBar() {
 }
 $('knoticego').onclick = () => showView('kconns');
 
-// the sidebar: one node per connection; only a connected one shows its pages
+// the sidebar: each cluster is a parent with an on/off switch; switched on, it shows all its pages as children
 function renderKNav() {
   $('knav').innerHTML = clusters.map((c) => {
-    const st = kstate[c.name], on = st.status === 'connected';
-    const head = `<button type="button" class="knh ${on ? '' : 'idle'}" data-kh="${esc(c.name)}" title="${esc(c.context)}"><span class="ico">${esc(c.name.slice(0, 1).toUpperCase())}</span><span class="lbl">${esc(c.name)}</span><span class="dot ${st.status}"></span></button>`;
+    const st = kstate[c.name], on = st.status === 'connected', busy = st.status === 'connecting';
+    const head = `<div class="knh ${on ? 'on' : 'idle'}">
+      <button type="button" class="kname" data-kh="${esc(c.name)}" title="${esc(c.context)}"><span class="chev">${on ? '▾' : '▸'}</span><span class="ico">${esc(c.name.slice(0, 1).toUpperCase())}</span><span class="lbl">${esc(c.name)}</span></button>
+      <button type="button" class="sw ${st.status}" role="switch" aria-checked="${on}" data-toggle="${esc(c.name)}" ${busy ? 'disabled' : ''} title="${on ? 'Connected: switch off to disconnect' : st.status === 'failed' ? 'Failed: ' + esc(st.error) : 'Switch on to connect'}"><i></i></button>
+    </div>`;
     const kids = on ? K_PAGES.map(([v, label, letter]) => `<button type="button" class="kc" data-view="${v}" data-kc="${esc(c.name)}" title="${label}"><span class="ico">${letter}</span><span class="lbl">${label}</span> <span class="n" data-badge="${v}">${kbadges[c.name]?.[v] ?? ''}</span></button>`).join('') : '';
-    return `<div class="kn" data-kc="${esc(c.name)}">${head}${kids}</div>`;
+    return `<div class="kn ${on ? 'open' : ''}" data-kc="${esc(c.name)}">${head}${on ? `<div class="kids">${kids}</div>` : ''}</div>`;
   }).join('');
   markNav();
 }
@@ -77,7 +80,7 @@ function renderKconns() {
     if (st.status === 'connected') return `${pill('connected', 'ok')} <span class="muted">Kubernetes ${esc(st.version || '')} · ${st.ms} ms</span>`;
     if (st.status === 'connecting') return '<span class="muted">connecting…</span>';
     if (st.status === 'failed') return `${pill('failed', 'bad')} <span class="muted" title="${esc(st.error)}">${esc((st.error || '').slice(0, 90))}</span>`;
-    return `${pill('not connected')} <span class="muted">press Connect</span>`;
+    return `${pill('not connected')} <span class="muted">press Connect or switch it on</span>`;
   };
   $('kconnrows').innerHTML = clusters.length ? clusters.map((c) => {
     const st = kstate[c.name];
@@ -85,7 +88,7 @@ function renderKconns() {
       ? '<button type="button" class="sm" data-a="namespaces">Namespaces</button><button type="button" class="sm" data-a="pods">Pods</button><button type="button" class="sm" data-a="disconnect">Disconnect</button>'
       : `<button type="button" class="sm" data-a="connect" ${st.status === 'connecting' ? 'disabled' : ''}>Connect</button>`;
     return `<tr data-n="${esc(c.name)}"><td class="name">${esc(c.name)}</td><td style="word-break:break-all">${esc(c.context)}</td><td>${cell(c)}</td><td class="actions">${acts}</td></tr>`;
-  }).join('') : '<tr><td colspan="4" class="muted">no Kubernetes connection in the config: add a "kubernetes" list to connect clusters</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="muted">no Kubernetes cluster in the config: add a "kubernetes" list</td></tr>';
 }
 async function connectK8s(name) { // the only place that talks to a cluster before you use it
   const st = kstate[name];
@@ -128,7 +131,7 @@ $('kconnrows').addEventListener('click', async (e) => {
 
 // ---- views and theme
 const VIEWS = {
-  kconns: ['Kubernetes connections', () => 'The clusters from the config. Nothing connects until you press Connect.'],
+  kconns: ['Kubernetes clusters', () => 'The clusters from the config. Nothing connects until you switch one on.'],
   namespaces: ['Namespaces', () => 'The namespaces of the cluster. Open one to work in it.'],
   services: ['Services', () => `Services in ${nsLabel()}.`],
   deployments: ['Deployments', () => `Deployments in ${nsLabel()}.`],
@@ -155,9 +158,15 @@ function showView(v) {
   if (K8S_VIEWS.includes(v) && !kOk) return;
   if (v === 'forwards') loadForwards(); else if (v === 'redis') showRedis(); else if (v === 'es') showEs(); else { render(v); load(v); }
 }
+async function toggleK8s(name) { // the switch in the sidebar: on = connect, off = disconnect
+  if (kstate[name].status === 'connected') return disconnectK8s(name);
+  if (await connectK8s(name) && !kOk) await setCluster(name); // the first one connected becomes the active one
+}
 document.querySelector('nav').addEventListener('click', async (e) => {
+  const sw = e.target.closest('button[data-toggle]');
+  if (sw) return toggleK8s(sw.dataset.toggle);
   const h = e.target.closest('button[data-kh]');
-  if (h) { // a connection's name: its pods when connected, else the Connections page to press Connect
+  if (h) { // a cluster's name: its pods when connected, else the Clusters page
     if (kstate[h.dataset.kh].status !== 'connected') return showView('kconns');
     await setCluster(h.dataset.kh);
     return showView('pods');
