@@ -268,3 +268,17 @@ func TestPodForCarriesThePodDetails(t *testing.T) {
 		}
 	}
 }
+
+func TestStopForwardsRoute(t *testing.T) {
+	h := newTestServer()
+	for _, p := range []string{"/api/forwards", "/api/forwards?cluster=test"} {
+		w := do(h, "DELETE", p, "")
+		if w.Code != 200 || !strings.Contains(w.Body.String(), `"stopped":0`) {
+			t.Fatalf("%s: %d %s", p, w.Code, w.Body)
+		}
+	}
+	// stopping is allowed under read_only (closing something is always safe)
+	if w := do(newServer(config.Config{ReadOnly: true}), "DELETE", "/api/forwards", ""); w.Code != 200 {
+		t.Fatalf("read_only: %d", w.Code)
+	}
+}

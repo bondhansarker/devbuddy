@@ -73,8 +73,9 @@ function pruneState() {
 // Reset session (in Settings): every connection off AND the saved session forgotten (which connections were on, the page, filters,
 // open tabs, port numbers), then a reload. Theme, Auto refresh and layout are preferences and stay.
 $('startfresh').onclick = async () => {
-  if (!await askConfirm('Switch every connection off and forget what was on, the page, filters, open tabs and port numbers? Open shells end. Theme and Auto refresh stay. Nothing in your clusters changes.', { title: 'Reset session', ok: 'Reset session', danger: true })) return;
+  if (!await askConfirm('Switch every connection off and forget what was on, the page, filters, open tabs and port numbers? Open shells and port forwards end. Theme and Auto refresh stay. Nothing in your clusters changes.', { title: 'Reset session', ok: 'Reset session', danger: true })) return;
   [...tabs.keys()].forEach(closeTab); // ends the shells
+  await stopForwardsOf('', true);
   try { Object.keys(localStorage).filter((k) => k === SESSION_KEY || k === 'k8ui.logtabs' || k === 'k8ui.forwards' || k.startsWith('k8ui.dividers.')).forEach((k) => localStorage.removeItem(k)); } catch {}
   location.reload();
 };
@@ -159,7 +160,7 @@ function syncPower() {
   const back = r ? [...(r.k8s || []), ...(r.redis || []), ...(r.es || [])] : [];
   b.classList.toggle('on', on);
   b.setAttribute('aria-pressed', on);
-  b.title = on ? 'Connections are on: click to switch every one off (your page, filters and tabs stay)' : back.length ? `All off: click to switch back on ${back.join(', ')}` : 'No connection is on';
+  b.title = on ? 'Connections are on: click to switch every one off and stop their port forwards (your page, filters and tabs stay)' : back.length ? `All off: click to switch back on ${back.join(', ')}` : 'No connection is on';
 }
 $('discall').onclick = () => {
   const live = liveOn();
@@ -167,12 +168,12 @@ $('discall').onclick = () => {
     sess.resume = live;
     const keepView = view; // disconnecting moves you to a connection list; the page you were on is what comes back
     armSession();
-    live.k8s.forEach(disconnectK8s);
+    const stops = live.k8s.map((n) => disconnectK8s(n, true));
     live.redis.forEach((n) => disconnectDs('redis', n));
     live.es.forEach((n) => disconnectDs('es', n));
     if (!['kconns', 'rconns', 'esconns'].includes(keepView)) sess.view = keepView;
     saveSession();
-    toast('all connections switched off');
+    Promise.all(stops).then((c) => { const n = c.reduce((t, x) => t + (x || 0), 0); toast('all connections switched off' + (n ? `; stopped ${n} port forward${n === 1 ? '' : 's'}` : '')); });
     return;
   }
   const r = sess.resume;

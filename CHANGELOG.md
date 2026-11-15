@@ -13,6 +13,7 @@ First release.
 - Settings dialog (gear at the bottom of the sidebar): theme, Auto refresh, Reset session (switches everything off and forgets the saved session). A power icon beside Settings is one on / off switch for all connections: off remembers what was on, on brings it back (same active connection, filters and page). A refresh-now button stays in the filter bar; pod metrics are fetched every third refresh and failed refreshes back off.
 - A refresh restores the session: connections that were on are switched on again, with the active connection, namespace filter, page and Redis / Elasticsearch tab. **Reset session** clears it; stale entries are pruned at start.
 - Compact look: about 10% smaller type and spacing, a narrower sidebar; the sidebar scrolls when every group is open, so Settings stays on screen.
+- Switching a connection off (or the power icon, or Reset session) stops the port forwards it opened.
 - Fewer calls: no sidebar counts and no background lists; a page's list is read when it is opened (and again only after a refresh interval), the namespace list lazily, port forwards only on their page, pod metrics only when their columns are visible.
 - Cheaper reads: Kubernetes lists are answered from the API server's cache; the Elasticsearch hit count is capped at 10,000.
 - Redis: edit a string value (TTL kept), export keys with their values as JSON. Elasticsearch: export the loaded documents as JSON or CSV.

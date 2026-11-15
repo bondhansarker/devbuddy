@@ -45,6 +45,15 @@ async function forward(p, svc) {
   } catch (e) { ktoast(p.namespace, `port-forward pod/${p.name} ${lp || cp}:${cp}`, e.message); }
 }
 let forwards = [];
+// Switching a connection off closes the port forwards it opened ("" = all of them); resolves to how many were stopped.
+async function stopForwardsOf(cluster = '', quiet = false) {
+  try {
+    const r = await api('/api/forwards' + (cluster ? '?cluster=' + encodeURIComponent(cluster) : ''), { method: 'DELETE' });
+    if (r.stopped && !quiet) toast(`stopped ${r.stopped} port forward${r.stopped === 1 ? '' : 's'}${cluster ? ' on ' + cluster : ''}`);
+    if (r.stopped && view === 'forwards') loadForwards();
+    return r.stopped || 0;
+  } catch { return 0; }
+}
 async function loadForwards() {
   forwards = await api('/api/forwards').catch(() => []);
   renderForwards();

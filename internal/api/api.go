@@ -99,6 +99,7 @@ func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
 	mux.HandleFunc("POST /api/es/{name}/delete", s.esDelete)
 	mux.HandleFunc("GET /api/forwards", s.forwards)
 	mux.HandleFunc("POST /api/forwards", s.startForward)
+	mux.HandleFunc("DELETE /api/forwards", s.stopForwards)
 	mux.HandleFunc("DELETE /api/forwards/{id}", s.stopForward)
 	mux.Handle("/", staticHandler(web))
 	h := sameOrigin(mux)

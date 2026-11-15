@@ -160,3 +160,30 @@ func TestParseNodeMetrics(t *testing.T) {
 		t.Fatalf("%v %v", m, err)
 	}
 }
+
+func TestStopClusterClosesOnlyThatConnectionsForwards(t *testing.T) {
+	f := NewForwards()
+	add := func(id, cluster string) chan struct{} {
+		ch := make(chan struct{})
+		f.m[id] = &Forward{ID: id, Cluster: cluster, stop: ch}
+		return ch
+	}
+	d1, d2, s1 := add("1", "dev"), add("2", "dev"), add("3", "stg")
+	closed := func(ch chan struct{}) bool {
+		select {
+		case <-ch:
+			return true
+		default:
+			return false
+		}
+	}
+	if n := f.StopCluster("dev"); n != 2 || !closed(d1) || !closed(d2) || closed(s1) || len(f.List()) != 1 {
+		t.Fatalf("stopped %d, left %v", n, f.List())
+	}
+	if n := f.StopCluster("nope"); n != 0 {
+		t.Fatalf("an unknown connection stops nothing, got %d", n)
+	}
+	if n := f.StopCluster(""); n != 1 || !closed(s1) || len(f.List()) != 0 {
+		t.Fatalf("all: stopped %d, left %v", n, f.List())
+	}
+}

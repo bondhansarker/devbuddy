@@ -57,6 +57,17 @@ func (f *Forwards) Stop(id string) bool {
 	return ok
 }
 
+// StopCluster stops the forwards of one connection ("" = all of them) and says how many it stopped.
+func (f *Forwards) StopCluster(cluster string) int {
+	n := 0
+	for _, v := range f.List() {
+		if (cluster == "" || v.Cluster == cluster) && f.Stop(v.ID) {
+			n++
+		}
+	}
+	return n
+}
+
 // freePort returns want when it is free on loopback, else any free port (want 0 = any).
 func freePort(want int) (int, error) {
 	l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", want))
