@@ -202,6 +202,7 @@ let rtab = 'keys';
 function setRTab(t) {
   rtab = t;
   ds.redis.tab = t;
+  saveSession();
   markNav();
   document.querySelectorAll('#redisView .rtabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
   $('rkeys').hidden = t !== 'keys'; $('rconsole').hidden = t !== 'console';

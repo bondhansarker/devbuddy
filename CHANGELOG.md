@@ -7,7 +7,8 @@
 - Redis (keys, console) and Elasticsearch / OpenSearch (documents, indices, query, delete) are built the same way: flat connections with a switch under a collapsible group, nothing connects until switched on, each connection keeps its own state; Kubernetes, Redis and Elasticsearch groups and each connected node fold.
 
 - Pods: **Describe** (status, why a container restarted, events, as JSON) and CPU / memory columns when the cluster has metrics-server (hidden otherwise). Deployments: **Scale** and **Rollout restart**. Logs: "since" range and a level filter.
-- Auto refresh checkbox and a refresh-now button; pod metrics are fetched every third refresh and failed refreshes back off.
+- Settings dialog (gear at the bottom of the sidebar): theme, Auto refresh, Disconnect all, Reset saved state. A refresh-now button stays in the filter bar; pod metrics are fetched every third refresh and failed refreshes back off.
+- A refresh restores the session: connections that were on are switched on again, with the active connection, namespace filter, page and Redis / Elasticsearch tab. **Reset saved state** clears it; stale entries are pruned at start.
 - Cheaper reads: Kubernetes lists are answered from the API server's cache; the Elasticsearch hit count is capped at 10,000.
 - Redis: edit a string value (TTL kept), export keys with their values as JSON. Elasticsearch: export the loaded documents as JSON or CSV.
 - Command toasts have a button that copies the command.

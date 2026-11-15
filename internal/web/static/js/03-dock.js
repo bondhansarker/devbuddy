@@ -18,6 +18,7 @@ function closeTab(key) {
   if (!t) return;
   t.stop();
   t.kill?.();
+  t.forget?.();
   t.tab.remove();
   t.pane.remove();
   tabs.delete(key);
@@ -194,6 +195,7 @@ function openLogs(p, container, kind = 'pods') {
       // Dividers are remembered (per tab, in this browser) as "after this log line": a refresh or reload
       // reads the logs again and puts each divider back after its line, if that line is still in the tail.
       const mkey = `k8ui.dividers.${kind}:${p.namespace}/${p.name}`;
+      t.forget = () => { try { localStorage.removeItem(mkey); } catch {} }; // closing the tab drops its dividers
       let marks = [], pending = [], fresh = null; // fresh: the divider just added, held at 70% of the view
       try { marks = JSON.parse(localStorage.getItem(mkey)) || []; } catch {}
       const dividerEl = (time) => Object.assign(document.createElement('div'), { className: 'divider', textContent: time });

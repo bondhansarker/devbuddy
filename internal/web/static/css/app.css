@@ -219,9 +219,9 @@ nav .gbody > button[data-view] { width:100%; margin-top:2px; }
 nav .ico { width:16px; height:16px; } nav .ico svg { width:16px; height:16px; }
 nav .n { min-width:20px; height:20px; font-size:11px; }
 .ddpanel .ddq { position:sticky; top:-6px; z-index:1; display:block; width:calc(100% - 8px); margin:-6px 4px 6px; padding:7px 10px; height:auto; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; box-shadow:0 -6px 0 var(--bg); }
-.discall { display:flex; align-items:center; gap:10px; margin:12px 4px 0; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:none; color:var(--muted); font:inherit; font-size:13px; cursor:pointer; }
-.discall:hover { color:var(--danger); border-color:var(--danger); } .discall[hidden] { display:none; }
-body.collapsed .discall { justify-content:center; padding:9px 0; margin:12px 0 0; } body.collapsed .discall span { display:none; }
+.settingsbtn { display:flex; align-items:center; gap:10px; margin:12px 4px 0; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:none; color:var(--muted); font:inherit; font-size:13px; cursor:pointer; }
+.settingsbtn:hover { color:var(--fg); border-color:var(--muted); }
+body.collapsed .settingsbtn { justify-content:center; padding:9px 0; margin:12px 0 0; } body.collapsed .settingsbtn span { display:none; }
 .brand .logo { display:inline-flex; color:var(--fg); } .brand .t { flex:1; margin-left:-2px; }
 body.collapsed .brand { flex-direction:column; gap:12px; } body.collapsed .brand .logo svg { width:28px; height:24px; }
 /* collapsed: logo tile on top, the three icons, power at the bottom; the toggle floats at the top of the page */
@@ -233,7 +233,7 @@ body.collapsed .brand { flex-direction:column; gap:12px; } body.collapsed .brand
   body.collapsed #sidetoggle { position:fixed; z-index:6; top:22px; left:calc(var(--side) + 18px); }
   body.collapsed .topbar { padding-left:44px; min-height:32px; }
   body.collapsed aside { gap:14px; }
-  body.collapsed .discall { margin:auto 0 0; border:none; width:100%; padding:11px 0; } body.collapsed .discall svg { width:20px; height:20px; }
+  body.collapsed .settingsbtn { margin:auto 0 0; border:none; width:100%; padding:11px 0; } body.collapsed .settingsbtn svg { width:20px; height:20px; }
   body.collapsed nav .grp .gn { padding:11px 0; } body.collapsed nav .grp .gi svg { width:22px; height:22px; }
 }
 /* the toggle lives outside the sidebar, top-left of the page, open or collapsed; the brand is a logo tile + name */
@@ -291,3 +291,17 @@ td.actions button.sm { white-space:nowrap; } td.actions { min-width:210px; }
 @media (max-width: 1050px) { #podsView th:nth-child(9), #podsView td:nth-child(9), #jobsView th:nth-child(7), #jobsView td:nth-child(7) { display:none; } }
 .refreshctl { margin-left:auto; display:inline-flex; align-items:center; gap:8px; } .autorefresh { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; cursor:pointer; user-select:none; } .autorefresh input { width:15px; height:15px; margin:0; accent-color:var(--accent); }
 #refreshnow.spin svg { animation:swspin .8s linear infinite; } @keyframes swspin { to { transform:rotate(360deg); } }
+#setbody { padding:6px 16px 14px; overflow:auto; } #setbody section { padding:10px 0; border-bottom:1px solid var(--line-soft); } #setbody section:last-child { border-bottom:none; }
+#setbody h4 { margin:0 0 6px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.setrow { display:flex; align-items:center; justify-content:space-between; gap:16px; } .setrow > span { display:flex; flex-direction:column; gap:2px; min-width:0; } .setrow small { font-size:12px; }
+.setrow select { width:auto; min-width:120px; } .setrow input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); }
+#setbody button.sm { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; } #setbody button.sm:disabled { opacity:.45; cursor:default; }
+/* Settings sits at the very bottom of the sidebar */
+.settingsbtn { margin:0 4px 0; } body.collapsed .settingsbtn { margin:auto 0 0; }
+/* Settings: a panel beside the Settings button, not a modal */
+.settingspop { position:fixed; z-index:40; left:calc(var(--side) + 10px); bottom:16px; width:380px; max-width:calc(100vw - var(--side) - 20px); max-height:calc(100vh - 32px); overflow:auto; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 32px rgba(0,0,0,.4); }
+.settingspop[hidden] { display:none; } .settingspop .head { display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line); } .settingspop .head strong { flex:1; }
+.settingsbtn.on { color:var(--fg); border-color:var(--muted); background:var(--panel); }
+.seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; } .seg button { border:none; border-radius:0; background:none; color:var(--muted); padding:5px 14px; font:inherit; font-size:13px; cursor:pointer; } .seg button + button { border-left:1px solid var(--line); }
+.seg button.on { background:var(--accent-bg); color:var(--accent); font-weight:600; }
+@media (max-width: 800px) { .settingspop { left:10px; right:10px; width:auto; max-width:none; } }

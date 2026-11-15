@@ -36,6 +36,7 @@ async function showEs() {
 function setEsTab(t) {
   es.tab = t;
   ds.es.tab = t;
+  saveSession();
   markNav();
   document.querySelectorAll('#esdetail .rtabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
   $('esdocs').hidden = t !== 'docs'; $('esidx').hidden = t !== 'indices'; $('esquery').hidden = t !== 'query';
