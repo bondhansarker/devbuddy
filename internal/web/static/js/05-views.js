@@ -112,7 +112,7 @@ async function connectK8s(name) { // the only place that talks to a cluster befo
   syncKubernetes(); renderKconns(); renderKNav();
   return st.status === 'connected';
 }
-function disconnectK8s(name) { // drops that connection's lists; its shells keep running until you close the tab
+function disconnectK8s(name, quiet) { // drops that connection's lists and closes its port forwards; its shells keep running until you close the tab
   armSession();
   Object.assign(kstate[name], { status: 'idle', error: '' });
   delete kstore[name]; delete restored[name]; delete nsAt[name];
@@ -124,6 +124,7 @@ function disconnectK8s(name) { // drops that connection's lists; its shells keep
   }
   syncKubernetes(); renderKNav(); renderKconns();
   if (K8S_VIEWS.includes(view)) showView(kOk ? view : 'kconns');
+  return stopForwardsOf(name, quiet);
 }
 $('kconnrows').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-a]');
@@ -148,7 +149,7 @@ const VIEWS = {
   es: ['Elasticsearch', () => 'Documents (search, view, delete), indices and read-only queries.'],
   rconns: ['Redis servers', () => 'The servers from the config. Nothing connects until you switch one on.'],
   redis: ['Redis', () => 'Keys (search, view, delete) and a command console.'],
-  forwards: ['Port forwards', () => 'Active forwards to 127.0.0.1. They stop when the app exits.'],
+  forwards: ['Port forwards', () => 'Active forwards to 127.0.0.1. They stop when you switch their connection off, or when the app exits.'],
 };
 function showView(v) {
   view = v;

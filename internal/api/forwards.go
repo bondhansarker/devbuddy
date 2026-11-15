@@ -38,6 +38,11 @@ func (s *Server) startForward(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) forwards(w http.ResponseWriter, r *http.Request) { ok(w, s.fw.List()) }
 
+// stopForwards stops every forward of ?cluster= (all of them without it): switching a connection off closes what it opened.
+func (s *Server) stopForwards(w http.ResponseWriter, r *http.Request) {
+	ok(w, map[string]int{"stopped": s.fw.StopCluster(r.URL.Query().Get("cluster"))})
+}
+
 func (s *Server) stopForward(w http.ResponseWriter, r *http.Request) {
 	if !s.fw.Stop(r.PathValue("id")) {
 		fail(w, http.StatusNotFound, errors.New("forward not found"))
