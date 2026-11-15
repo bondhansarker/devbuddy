@@ -143,3 +143,13 @@
     nav { flex-direction:row; overflow-x:auto; } .side-foot { margin:0; flex-direction:row; align-items:flex-end; }
     .content { padding:16px; }
   }
+
+/* Kubernetes connections in the sidebar: each connected cluster is a node with its own pages */
+nav .kn { margin:2px 0 4px; }
+nav .knh { display:flex; align-items:center; gap:10px; width:100%; text-align:left; border:none; background:none; padding:7px 10px; border-radius:8px; color:var(--fg); font-weight:600; }
+nav .knh:hover { background:var(--panel); } nav .knh.idle { color:var(--muted); font-weight:400; }
+nav .knh .dot { margin-left:auto; width:8px; height:8px; border-radius:50%; background:var(--muted); }
+nav .knh .dot.connected { background:var(--ok); } nav .knh .dot.failed { background:var(--danger); } nav .knh .dot.connecting { background:#e3b341; }
+nav button.kc { padding-left:30px; }
+body.collapsed nav button.kc, body.collapsed nav .knh { padding-left:0; padding-right:0; } body.collapsed nav .knh .dot { display:none; }
+#kconnsView table { table-layout:fixed; } #kconnsView .w-conn { width:200px; } #kconnsView .w-addr { width:320px; } #kconnsView .w-act3 { width:280px; }
