@@ -29,25 +29,20 @@ func (s *Server) logs(w http.ResponseWriter, r *http.Request) {
 	defer rc.Close()
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	fl, _ := w.(http.Flusher)
+	sse := newSSE(w)
+	defer sse.Close()
 	sc := bufio.NewScanner(rc)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
 	for sc.Scan() {
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", sc.Text()); err != nil {
+		if sse.Data(sc.Text()) != nil {
 			return
-		}
-		if fl != nil {
-			fl.Flush()
 		}
 	}
 	// Tell the UI the stream ended on purpose, so it does not reconnect.
 	if err := sc.Err(); err != nil && !errors.Is(err, io.EOF) && r.Context().Err() == nil {
-		fmt.Fprintf(w, "event: error\ndata: %s\n\n", err)
+		sse.Event("error", err.Error())
 	} else {
-		fmt.Fprint(w, "event: end\ndata: \n\n")
-	}
-	if fl != nil {
-		fl.Flush()
+		sse.Event("end", "")
 	}
 }
 
@@ -101,7 +96,8 @@ func (s *Server) workloadLogs(kind string) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
-		fl, _ := w.(http.Flusher)
+		sse := newSSE(w)
+		defer sse.Close()
 		ctx := r.Context()
 		lines := make(chan string, 256)
 		send := func(l string) {
@@ -138,19 +134,13 @@ func (s *Server) workloadLogs(kind string) http.HandlerFunc {
 		}
 		go func() { wg.Wait(); close(lines) }()
 		if note != "" {
-			fmt.Fprintf(w, "data: %s\n\n", note)
+			sse.Data(note)
 		}
 		for l := range lines {
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", l); err != nil {
+			if sse.Data(l) != nil {
 				return
 			}
-			if fl != nil {
-				fl.Flush()
-			}
 		}
-		fmt.Fprint(w, "event: end\ndata: \n\n")
-		if fl != nil {
-			fl.Flush()
-		}
+		sse.Event("end", "")
 	}
 }

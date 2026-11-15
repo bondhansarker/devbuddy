@@ -17,7 +17,7 @@
         <div class="grp first"><button type="button" class="gt" data-gtoggle="k8s" title="Collapse / expand">▾</button><button type="button" class="gn" data-gopen="kconns" title="Overview of the Kubernetes clusters"><span class="gi"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.0 1.5 L20.2 5.5 L22.2 14.3 L16.6 21.5 L7.4 21.5 L1.8 14.3 L3.8 5.5z"/><circle cx="12" cy="12" r="4.6"/><path d="M12.0 10.4L12.0 5.4M13.3 11.0L17.2 7.9M13.6 12.4L18.4 13.5M12.7 13.4L14.9 17.9M11.3 13.4L9.1 17.9M10.4 12.4L5.6 13.5M10.7 11.0L6.8 7.9"/></svg></span>Kubernetes</button><span class="pill" id="kpill">…</span></div>
         <div class="gbody" data-gbody="k8s">
           <div id="knav"></div>
-          <button type="button" title="Port forwards" data-view="forwards"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2.5 2.5 2.5 11.5 0 14M10 3c-2.5 2.5-2.5 11.5 0 14"/><path d="M15 18h6m-3-3l3 3-3 3"/></svg></span><span class="lbl">Port forwards</span> <span class="n" id="fwcount"></span></button>
+          <button type="button" title="Port forwards" data-view="forwards"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2.5 2.5 2.5 11.5 0 14M10 3c-2.5 2.5-2.5 11.5 0 14"/><path d="M15 18h6m-3-3l3 3-3 3"/></svg></span><span class="lbl">Port forwards</span></button>
         </div>
       </div>
       <div id="rsec" hidden>
@@ -32,7 +32,10 @@
     <div class="side-foot">
       <div><span id="prod" class="pill bad" hidden title="The active Kubernetes connection looks like production">production</span></div>
     </div>
+    <div class="sidebtns">
     <button type="button" id="settingsbtn" class="settingsbtn" title="Settings"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
+      <button type="button" id="discall" class="discallbtn" title="Switch every connection off (keeps your page, filters and tabs)" aria-label="Switch all connections off"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M6.4 6.4a8 8 0 1 0 11.2 0"/></svg></button>
+    </div>
   </aside>
   <button type="button" id="sidetoggle" class="sm" title="Collapse / expand the sidebar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
   <div class="content">
@@ -47,6 +50,15 @@
     <div id="knotice" class="card knotice" hidden><b>Kubernetes is not connected.</b> <span id="knoticetext"></span> <button type="button" id="knoticego" class="sm">Open Clusters</button></div>
 
     <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button><button type="button" id="rexport" hidden></button><span id="refreshctl" class="refreshctl" hidden><button type="button" id="refreshnow" class="icon" title="Refresh now"></button></span></div>
+
+    <section id="nodesView" hidden>
+      <div id="nodesum" class="nodesum"></div>
+      <p id="nodenote" class="muted"></p>
+      <div class="card"><table>
+        <thead><tr><th>Name</th><th>Status</th><th class="ver">Version</th><th>CPU</th><th>Memory</th><th class="num">Pods</th><th>Age</th></tr></thead>
+        <tbody id="noderows"></tbody>
+      </table></div>
+    </section>
 
     <section id="namespacesView">
       <div class="bar" style="margin-bottom:10px"><button type="button" id="nscreate" class="primary" hidden></button></div>
@@ -168,10 +180,9 @@
 
 <div id="settingsdlg" class="settingspop" hidden><div class="head"><strong>Settings</strong><button type="button" id="setx" class="icon"></button></div>
 <div id="setbody">
-  <section><h4>Appearance</h4><div class="setrow"><span>Theme</span><div class="seg" id="themeseg" role="group" aria-label="Theme"><button type="button" data-theme="light">Light</button><button type="button" data-theme="dark">Dark</button></div></div></section>
-  <section><h4>Refresh</h4><label class="setrow"><span>Auto refresh <small class="muted">reloads the open page every <b id="setsecs"></b> s</small></span><input type="checkbox" id="autorefresh"></label></section>
-  <section><h4>Connections</h4><div class="setrow"><span>Switch every connection off <small class="muted">Kubernetes, Redis and Elasticsearch; open shells keep running</small></span><button type="button" id="discall" class="sm danger"></button></div></section>
-  <section><h4>Saved state</h4><div class="setrow"><span>Forget what this browser remembers <small class="muted">connections that were on, page, filters, open tabs, theme, ports</small></span><button type="button" id="resetstate" class="sm danger"></button></div></section>
+  <div class="setrow" id="themerow" title="Light or dark theme"><span class="setl" id="themeico"></span><span>Theme</span><div class="seg" id="themeseg" role="group" aria-label="Theme"><button type="button" data-theme="light" title="Light" aria-label="Light"></button><button type="button" data-theme="dark" title="Dark" aria-label="Dark"></button></div></div>
+  <label class="setrow" id="refreshrow"><span class="setl" id="refreshico"></span><span>Auto refresh</span><input type="checkbox" id="autorefresh"></label>
+  <div class="setrow" title="Switches every connection off AND forgets what was on, the page, filters, open tabs and port numbers. Open shells end. Theme and Auto refresh stay."><button type="button" id="startfresh" class="sm danger wide"></button></div>
 </div></div>
 
 <div id="msg" hidden></div>

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 )
@@ -20,7 +19,7 @@ func (s *Server) startForward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var p forwardReq
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil || p.Namespace == "" || p.Pod == "" {
+	if err := decodeBody(w, r, &p, maxBody); err != nil || p.Namespace == "" || p.Pod == "" {
 		fail(w, http.StatusBadRequest, errors.New("namespace, pod and container_port required"))
 		return
 	}

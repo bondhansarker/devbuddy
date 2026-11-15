@@ -16,20 +16,14 @@ const jobCell = (r) => {
 let clusters = [], cluster = '', kOk = false, kWhy = ''; // cluster = the active connection ('' = none)
 const kstate = {};  // connection name -> { status: idle | connecting | connected | failed, version, ms, error }
 const kstore = {};  // connection name -> its own lists, namespace filter and status/owner filters
-const kbadges = {}; // connection name -> { view: count } shown in the sidebar
-const K8S_VIEWS = ['namespaces', 'services', 'deployments', 'jobs', 'pods']; // pages that need an active connection
-const K_PAGES = [['namespaces', 'Namespaces'], ['services', 'Services'], ['deployments', 'Deployments'], ['jobs', 'Jobs'], ['pods', 'Pods']];
+const K8S_VIEWS = ['nodes', 'namespaces', 'services', 'deployments', 'jobs', 'pods']; // pages that need an active connection
+const K_PAGES = [['nodes', 'Nodes'], ['namespaces', 'Namespaces'], ['services', 'Services'], ['deployments', 'Deployments'], ['jobs', 'Jobs'], ['pods', 'Pods']];
 // every action shows the kubectl command it is the same as (and its outcome) as a toast
 function ktoast(ns, args, result) {
   toast(`$ kubectl${ns ? ' -n ' + ns : ''} ${args}${result ? '\n' + result : ''}`);
 }
 const KTARGET = { pods: 'pod', deployments: 'deploy', services: 'svc', jobs: 'job' };
 function klogs(r, kind = 'pods') { ktoast(r.namespace, `logs -f ${KTARGET[kind]}/${r.name} --tail=${settings.log_tail}${kind === 'pods' ? '' : ' --all-containers'}`); }
-function setBadge(v, n) {
-  (kbadges[cluster] ??= {})[v] = n;
-  const el = document.querySelector(`#knav .kn[data-kc="${CSS.escape(cluster)}"] [data-badge="${v}"]`);
-  if (el) el.textContent = n;
-}
 const kq = (path, c = cluster) => {
   if (!c) throw new Error('no Kubernetes connection is active'); // never fall back to "the first one": nothing connects by itself
   return `${path}${path.includes('?') ? '&' : '?'}cluster=${encodeURIComponent(c)}`;
@@ -56,7 +50,7 @@ const LISTS = {
       <td class="num">${r.active}</td><td class="num">${r.failed}</td><td>${pill(r.status, r.status === 'Complete' ? 'ok' : r.status === 'Failed' ? 'bad' : '')}</td><td>${esc(r.age)}</td>${jobCell(r)}` },
 };
 const emptyText = (n) => (n ? 'nothing matches the filter' : 'nothing here');
-let data = { namespaces: [], services: [], deployments: [], jobs: [] }; // the lists of the ACTIVE connection (each connection keeps its own: see kstore)
+let data = { nodes: [], nodesMeta: {}, namespaces: [], services: [], deployments: [], jobs: [] }; // the lists of the ACTIVE connection (each connection keeps its own: see kstore)
 let view = 'namespaces';
 const PROTECTED_NS = (n) => n === 'default' || n.startsWith('kube-'); // the server refuses deleting these too
 
@@ -66,6 +60,7 @@ async function loadNamespaces() {
   const list = tag(await api(kq('/api/namespaces', c0)), c0);
   if (c0 !== cluster) return; // the connection changed while this was loading
   data.namespaces = list;
+  nsAt[c0] = Date.now();
   const names = list.map((n) => n.name);
   nsSel.selected = selected.filter((n) => names.includes(n)); // none = every namespace
   selected = nsSel.selected;
@@ -79,13 +74,34 @@ async function loadNamespaces() {
 const poll = { auto: false, tick: 0, fails: 0, wait: 0, enabled: (() => { try { return localStorage.getItem('k8ui.autorefresh') !== '0'; } catch { return true; } })() }; // enabled: the Auto refresh checkbox, remembered
 // a failed load: shown as a toast, except repeats during backoff (the first failure of a streak is shown)
 const loadErr = (e) => { if (!(poll.auto && poll.fails)) toast(e.message); return false; };
-async function load(v) { // resolves to false when the reload failed
+// A list page loads when it is opened, on the refresh tick while it is open, and when its filter changes.
+// loadedAt remembers when each list (per connection, page and namespace filter) was last read: opening a page
+// again within one refresh interval shows what is there instead of asking the cluster again.
+const busy = {}; // a view whose last load has not finished is not loaded again by the refresh timer
+const loadedAt = {};
+const loadKey = (v) => `${cluster}|${v}|${nsKey()}`;
+const isFresh = (v) => Date.now() - (loadedAt[loadKey(v)] || 0) < settings.refresh_seconds * 1000;
+let nsAt = {}; // connection -> when the namespace list was last read (it fills the namespace dropdown)
+async function load(v, cached) { // resolves to false when the reload failed
   if (K8S_VIEWS.includes(v) && !kOk) return; // not connected: the page says so, nothing to load
+  if (cached && isFresh(v)) return true;
   busy[v] = true;
-  try { return await loadView(v); } finally { busy[v] = false; }
+  try {
+    const ok = await loadView(v);
+    if (ok) loadedAt[loadKey(v)] = Date.now();
+    return ok;
+  } finally { busy[v] = false; }
 }
+// the pages with the namespace dropdown need the namespace list once (it is read again when the Namespaces page is open,
+// after a create or delete, or when the dropdown is opened more than a minute after the last read)
+function ensureNamespaces() {
+  if (!nsAt[cluster] || !data.namespaces.length) loadNamespaces().catch((e) => loadErr(e));
+}
+$('nsdd').addEventListener('toggle', (e) => { if (e.target.open && Date.now() - (nsAt[cluster] || 0) > 60000) loadNamespaces().catch(() => {}); }, true);
 async function loadView(v) {
+  if (v === 'nodes') return loadNodes();
   if (v === 'namespaces') return loadNamespaces().then(() => true, loadErr);
+  if (['services', 'deployments', 'jobs', 'pods'].includes(v)) ensureNamespaces();
   if (v === 'pods') return loadPods();
   if (!LISTS[v]) return;
   const ns = nsKey(), c0 = cluster;
@@ -97,9 +113,6 @@ async function loadView(v) {
   render(v);
   return true;
 }
-
-const loadAll = () => !kOk ? Promise.resolve() : Promise.all(['services', 'deployments', 'jobs', 'pods'].map(load));
-
 const nsSel = multiSelect($('nsdd'), 'All namespaces', 'namespaces', (v) => setNs(v));
 const statusSel = multiSelect($('statusdd'), 'All statuses', 'statuses', () => renderPods());
 const ownerSel = multiSelect($('ownerdd'), 'All owners', 'owners', () => renderPods());
@@ -112,8 +125,7 @@ function setNs(list) {
   data.services = []; data.deployments = []; data.jobs = []; pods = [];
   ['services', 'deployments', 'jobs', 'pods'].forEach(render);
   render('namespaces');
-  renderForwards();
-  loadAll();
+  if (['services', 'deployments', 'jobs', 'pods'].includes(view)) load(view); // only the page you are on; the others load when opened
 }
 
 const q = () => $('search').value.trim().toLowerCase();
@@ -134,14 +146,12 @@ document.addEventListener('click', (e) => {
   shown[k] += PAGE;
   if (k === 'esidx') renderEsIndices(); else render(k);
 });
-const busy = {}; // a view whose last load has not finished is not loaded again by the refresh timer
-
 function render(v) {
   if (v === 'pods') return renderPods();
+  if (v === 'nodes') return renderNodes();
   const L = LISTS[v];
   if (!L) return;
   const all = data[v], rows = all.filter((r) => match(L.text(r)));
-  setBadge(v, all.length);
   $(L.body).innerHTML = rows.length
     ? page(v, rows, cluster + '|' + q() + '|' + nsKey()).map((r) => `<tr>${L.row(r)}</tr>`).join('') + moreRow(v, rows.length, L.cols)
     : `<tr><td colspan="${L.cols}" class="muted">${emptyText(all.length)}</td></tr>`;
@@ -155,9 +165,9 @@ function render(v) {
   if (b.dataset.w === 'rollout') return rolloutRestart(r);
   if (b.dataset.w === 'logs') { klogs(r, kind); return openLogs(r, '', kind); } // every pod it selects, in one tab
   try {
-    const { pod } = await api(kq(`/api/${kind}/${r.namespace}/${encodeURIComponent(r.name)}/pod`, r.cluster));
-    const p = pods.find((x) => x.namespace === r.namespace && x.name === pod);
-    if (!p) return toast('pod list not loaded yet, try again');
+    const { pod, details } = await api(kq(`/api/${kind}/${r.namespace}/${encodeURIComponent(r.name)}/pod`, r.cluster));
+    const p = pods.find((x) => x.namespace === r.namespace && x.name === pod) || (details && { ...details, cluster: r.cluster }); // the Pods page may not have been opened
+    if (!p) return toast(`could not find a pod for ${r.name}`);
     if (b.dataset.w === 'shell') { openShell(p); } else forward(p, kind === 'services' ? r : null);
   } catch (err) { toast(err.message); }
 }));
@@ -215,13 +225,67 @@ $('nscreate').onclick = async () => {
   } catch (err) { ktoast('', args, err.message); }
 };
 
+
+// ---- nodes: the health of the whole cluster (not namespaced: the namespace filter does not apply)
+async function loadNodes() {
+  const c0 = cluster;
+  try {
+    const r = await api(kq('/api/nodes', c0));
+    if (c0 !== cluster) return;
+    data.nodes = tag(r.nodes, c0);
+    data.nodesMeta = { metrics: r.metrics, requests: r.requests, err: '' };
+  } catch (e) {
+    if (c0 !== cluster) return;
+    if (e.status === 403) { data.nodes = []; data.nodesMeta = { err: `this account may not list nodes (${e.message})` }; } // permanent: say so, do not retry noisily
+    else return loadErr(e);
+  }
+  renderNodes();
+  return true;
+}
+const pctOf = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
+const ubar = (p) => `<div class="ubar ${p >= 90 ? 'bad' : p >= 70 ? 'warn' : ''}"><i style="width:${Math.min(p, 100)}%"></i></div>`;
+// one resource cell: live use against what the node can allocate (when metrics-server is there), and what its pods request
+function useCell(use, req, alloc, fmt, meta) {
+  if (!alloc) return none;
+  const p = use != null ? pctOf(use, alloc) : pctOf(req, alloc);
+  const main = use != null ? `${fmt(use)} / ${fmt(alloc)} · ${p}%` : meta.requests ? `req ${fmt(req)} / ${fmt(alloc)} · ${p}%` : fmt(alloc);
+  const sub = use != null && meta.requests ? `<small class="muted">requested ${fmt(req)} (${pctOf(req, alloc)}%)</small>` : '';
+  return `${meta.requests || use != null ? ubar(p) : ''}<div class="usetxt">${main}</div>${sub}`;
+}
+function renderNodes() {
+  const all = data.nodes, meta = data.nodesMeta || {};
+  const rows = all.filter((n) => match([n.name, n.status, n.version, ...n.roles, ...n.pressure]));
+  const sum = (f) => all.reduce((t, n) => t + (f(n) || 0), 0);
+  const ready = all.filter((n) => n.status === 'Ready').length, bad = all.length - ready;
+  const cpuA = sum((n) => n.cpu_alloc_milli), memA = sum((n) => n.mem_alloc_bytes), podsA = sum((n) => n.pods_alloc);
+  const cpuU = sum((n) => n.cpu_use_milli), memU = sum((n) => n.mem_use_bytes);
+  const tile = (label, value, subl, p) => `<div class="tile card"><span class="t">${label}</span><b>${value}</b>${p != null ? ubar(p) : ''}<small class="muted">${subl}</small></div>`;
+  $('nodesum').innerHTML = all.length ? [
+    tile('Nodes ready', `${ready} / ${all.length}`, bad ? `<span class="bad-t">${bad} not ready</span>` : 'all ready', null),
+    tile('CPU', meta.metrics ? `${pctOf(cpuU, cpuA)}%` : `${pctOf(sum((n) => n.cpu_req_milli), cpuA)}%`, meta.metrics ? `${fmtCpu(cpuU)} of ${fmtCpu(cpuA)} in use` : meta.requests ? `${fmtCpu(sum((n) => n.cpu_req_milli))} of ${fmtCpu(cpuA)} requested` : `${fmtCpu(cpuA)} allocatable`, meta.metrics ? pctOf(cpuU, cpuA) : meta.requests ? pctOf(sum((n) => n.cpu_req_milli), cpuA) : null),
+    tile('Memory', meta.metrics ? `${pctOf(memU, memA)}%` : `${pctOf(sum((n) => n.mem_req_bytes), memA)}%`, meta.metrics ? `${fmtBytes(memU)} of ${fmtBytes(memA)} in use` : meta.requests ? `${fmtBytes(sum((n) => n.mem_req_bytes))} of ${fmtBytes(memA)} requested` : `${fmtBytes(memA)} allocatable`, meta.metrics ? pctOf(memU, memA) : meta.requests ? pctOf(sum((n) => n.mem_req_bytes), memA) : null),
+    tile('Pods', meta.requests ? `${sum((n) => n.pods)} / ${podsA}` : String(podsA), meta.requests ? 'running or pending, of capacity' : 'capacity', meta.requests ? pctOf(sum((n) => n.pods), podsA) : null),
+  ].join('') : '';
+  $('nodenote').textContent = meta.err ? '' : all.length ? `${meta.metrics ? '' : 'No metrics-server: showing what pods request, not live use. '}${meta.requests ? '' : 'The pod list is not readable: requests and pod counts are not shown.'}`.trim() : '';
+  $('noderows').innerHTML = rows.length ? rows.map((n) => `<tr>
+      <td class="name">${esc(n.name)}${n.roles.map((r) => ' ' + pill(r)).join('')}${n.unschedulable ? ' ' + pill('cordoned', 'bad') : ''}</td>
+      <td>${pill(n.status, n.status === 'Ready' ? 'ok' : 'bad')}${n.pressure.map((p) => ' ' + pill(p, 'bad')).join('')}</td>
+      <td class="ver">${esc(n.version)}</td>
+      <td class="res">${useCell(n.cpu_use_milli, n.cpu_req_milli, n.cpu_alloc_milli, fmtCpu, meta)}</td>
+      <td class="res">${useCell(n.mem_use_bytes, n.mem_req_bytes, n.mem_alloc_bytes, fmtBytes, meta)}</td>
+      <td class="num">${meta.requests ? `${n.pods} / ${n.pods_alloc}` : n.pods_alloc}</td><td>${esc(n.age)}</td></tr>`).join('')
+    : `<tr><td colspan="7" class="muted">${esc(meta.err || emptyText(all.length))}</td></tr>`;
+}
+
 // CPU and memory columns: only when the cluster has metrics-server (one 404 hides them for that connection)
 const kmetrics = {}, podUse = {}; // connection -> true | false; "cluster|ns/name" -> { cpu_milli, mem_bytes }
 const fmtCpu = (m) => (m < 1000 ? `${m}m` : `${(m / 1000).toFixed(2)}`);
 const metricCells = (p) => { const u = podUse[`${p.cluster}|${p.namespace}/${p.name}`]; return `<td class="num m">${u ? fmtCpu(u.cpu_milli) : none}</td><td class="num m">${u ? fmtBytes(u.mem_bytes) : none}</td>`; };
+const METRICS_SHOWN = matchMedia('(min-width: 1301px)'); // below this the CPU / Memory columns are hidden: do not fetch them
+METRICS_SHOWN.addEventListener('change', (e) => { if (e.matches && view === 'pods' && kOk) load('pods'); });
 async function loadPods() {
   const ns = nsKey(), c0 = cluster;
-  const wantMetrics = !poll.auto || poll.tick % 3 === 0; // CPU and memory move slowly: the automatic refresh asks every third time
+  const wantMetrics = METRICS_SHOWN.matches && (!poll.auto || poll.tick % 3 === 0); // CPU and memory move slowly: the automatic refresh asks every third time
   const metrics = !wantMetrics ? Promise.resolve(undefined) : kmetrics[c0] === false ? Promise.resolve(null)
     : api(kq(`/api/pods/metrics?namespace=${encodeURIComponent(ns)}`, c0)).catch((e) => { if (e.status === 404) kmetrics[c0] = false; return null; });
   try {
@@ -246,7 +310,6 @@ function renderPods() {
     (!statusSel.selected.length || statusSel.selected.includes(p.phase)) &&
     (!ownerSel.selected.length || ownerSel.selected.includes(p.owner_kind ?? NO_OWNER)) &&
     match([p.name, p.namespace, p.phase, p.owner_kind ?? '', ...p.images]));
-  setBadge('pods', pods.length);
   const sig = [cluster, q(), nsKey(), statusSel.selected, ownerSel.selected].join('|');
   $('pods').innerHTML = rows.length
     ? page('pods', rows, sig).map(([p, i]) => `<tr>

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/bondhansarker/devbuddy/internal/api"
 	"github.com/bondhansarker/devbuddy/internal/config"
@@ -47,5 +48,10 @@ func main() {
 		clusters = append(clusters, c)
 	}
 	fmt.Printf("DevBuddy on http://%s (%d Kubernetes, %d Redis, %d Elasticsearch; config: %s%s)\n", cfg.Addr, len(cfg.Kubernetes), len(cfg.Redis), len(cfg.Elasticsearch), used, map[bool]string{true: ", read-only"}[cfg.ReadOnly])
-	log.Fatal(http.ListenAndServe(cfg.Addr, api.New(clusters, web.FS(), cfg)))
+	for _, w := range config.Warnings(used, cfg) {
+		log.Printf("warning: %s", w)
+	}
+	// header and idle timeouts only: logs (SSE) and shells (WebSocket) are long-lived on purpose
+	srv := &http.Server{Addr: cfg.Addr, Handler: api.New(clusters, web.FS(), cfg), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 64 << 10}
+	log.Fatal(srv.ListenAndServe())
 }

@@ -286,3 +286,145 @@ func (c *Client) DeleteNamespace(ctx context.Context, name string) error {
 	}
 	return c.cs.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
 }
+
+// ---- nodes: the health of the whole cluster
+
+type NodeInfo struct {
+	Name          string   `json:"name"`
+	Roles         []string `json:"roles"`
+	Status        string   `json:"status"` // Ready, NotReady or Unknown
+	Unschedulable bool     `json:"unschedulable"`
+	Pressure      []string `json:"pressure"` // conditions that are true and bad: MemoryPressure, DiskPressure, PIDPressure, NetworkUnavailable
+	Version       string   `json:"version"`
+	Age           string   `json:"age"`
+	CPUAllocMilli int64    `json:"cpu_alloc_milli"`
+	MemAllocBytes int64    `json:"mem_alloc_bytes"`
+	PodsAlloc     int64    `json:"pods_alloc"`
+	CPUReqMilli   int64    `json:"cpu_req_milli"` // requests of the pods on the node (approximate: containers only)
+	MemReqBytes   int64    `json:"mem_req_bytes"`
+	Pods          int      `json:"pods"`
+	CPUUseMilli   *int64   `json:"cpu_use_milli"` // live use from metrics-server; nil without it
+	MemUseBytes   *int64   `json:"mem_use_bytes"`
+}
+
+type NodesResult struct {
+	Nodes    []NodeInfo `json:"nodes"`
+	Metrics  bool       `json:"metrics"`  // live CPU / memory use is included
+	Requests bool       `json:"requests"` // pod requests and counts are included (the pod list was readable)
+}
+
+// Nodes lists every node with its readiness, pressure, capacity, what its pods request and (when
+// metrics-server is there) what it uses. The pod list and the metrics are best effort: a role that cannot
+// read them still gets the nodes.
+func (c *Client) Nodes(ctx context.Context) (NodesResult, error) {
+	l, err := c.cs.CoreV1().Nodes().List(ctx, cachedList)
+	if err != nil {
+		return NodesResult{}, err
+	}
+	out := NodesResult{Nodes: make([]NodeInfo, 0, len(l.Items))}
+	idx := map[string]int{}
+	for _, n := range l.Items {
+		ni := NodeInfo{Name: n.Name, Roles: []string{}, Status: "Unknown", Pressure: []string{}, Unschedulable: n.Spec.Unschedulable,
+			Version: n.Status.NodeInfo.KubeletVersion, Age: age(n.CreationTimestamp.Time)}
+		for k := range n.Labels {
+			if r, ok := strings.CutPrefix(k, "node-role.kubernetes.io/"); ok && r != "" {
+				ni.Roles = append(ni.Roles, r)
+			}
+		}
+		sort.Strings(ni.Roles)
+		for _, cd := range n.Status.Conditions {
+			switch cd.Type {
+			case corev1.NodeReady:
+				switch cd.Status {
+				case corev1.ConditionTrue:
+					ni.Status = "Ready"
+				case corev1.ConditionFalse:
+					ni.Status = "NotReady"
+				}
+			case corev1.NodeMemoryPressure, corev1.NodeDiskPressure, corev1.NodePIDPressure, corev1.NodeNetworkUnavailable:
+				if cd.Status == corev1.ConditionTrue {
+					ni.Pressure = append(ni.Pressure, string(cd.Type))
+				}
+			}
+		}
+		a := n.Status.Allocatable
+		if len(a) == 0 {
+			a = n.Status.Capacity
+		}
+		ni.CPUAllocMilli = a.Cpu().MilliValue()
+		ni.MemAllocBytes = a.Memory().Value()
+		ni.PodsAlloc = a.Pods().Value()
+		idx[n.Name] = len(out.Nodes)
+		out.Nodes = append(out.Nodes, ni)
+	}
+	sort.Slice(out.Nodes, func(i, j int) bool { return out.Nodes[i].Name < out.Nodes[j].Name })
+	for i, n := range out.Nodes {
+		idx[n.Name] = i
+	}
+	if pl, err := c.cs.CoreV1().Pods("").List(ctx, cachedList); err == nil {
+		out.Requests = true
+		for _, p := range pl.Items {
+			i, ok := idx[p.Spec.NodeName]
+			if !ok || p.Status.Phase == corev1.PodSucceeded || p.Status.Phase == corev1.PodFailed {
+				continue
+			}
+			out.Nodes[i].Pods++
+			for _, ct := range p.Spec.Containers {
+				out.Nodes[i].CPUReqMilli += ct.Resources.Requests.Cpu().MilliValue()
+				out.Nodes[i].MemReqBytes += ct.Resources.Requests.Memory().Value()
+			}
+		}
+	}
+	if raw, err := c.nodeMetricsRaw(ctx); err == nil {
+		if use, err := parseNodeMetrics(raw); err == nil {
+			out.Metrics = true
+			for name, u := range use {
+				if i, ok := idx[name]; ok {
+					cpu, mem := u[0], u[1]
+					out.Nodes[i].CPUUseMilli, out.Nodes[i].MemUseBytes = &cpu, &mem
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+func (c *Client) nodeMetricsRaw(ctx context.Context) ([]byte, error) {
+	rc, _ := c.cs.CoreV1().RESTClient().(*rest.RESTClient)
+	if rc == nil {
+		return nil, ErrNoMetrics
+	}
+	raw, err := rc.Get().AbsPath("/apis/metrics.k8s.io/v1beta1/nodes").DoRaw(ctx)
+	if err != nil {
+		if apierrors.IsNotFound(err) || apierrors.IsServiceUnavailable(err) || apierrors.IsForbidden(err) {
+			return nil, ErrNoMetrics
+		}
+		return nil, err
+	}
+	return raw, nil
+}
+
+// parseNodeMetrics maps node name to {cpu milli, memory bytes}.
+func parseNodeMetrics(raw []byte) (map[string][2]int64, error) {
+	var l struct {
+		Items []struct {
+			Metadata struct{ Name string }
+			Usage    map[string]string
+		}
+	}
+	if err := json.Unmarshal(raw, &l); err != nil {
+		return nil, fmt.Errorf("unexpected metrics answer: %w", err)
+	}
+	out := map[string][2]int64{}
+	for _, it := range l.Items {
+		var u [2]int64
+		if q, err := resource.ParseQuantity(it.Usage["cpu"]); err == nil {
+			u[0] = q.MilliValue()
+		}
+		if q, err := resource.ParseQuantity(it.Usage["memory"]); err == nil {
+			u[1] = q.Value()
+		}
+		out[it.Metadata.Name] = u
+	}
+	return out, nil
+}

@@ -43,6 +43,7 @@ type Server struct {
 }
 
 func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
+	setScrubber(cfg)
 	s := &Server{byName: map[string]*Cluster{}, fw: kube.NewForwards(), cfg: cfg, shells: map[string]*shell{}, rd: redisview.New(cfg.Redis), es: esview.New(cfg.Elasticsearch)}
 	for i := range clusters {
 		c := &clusters[i]
@@ -56,6 +57,7 @@ func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
 	mux.HandleFunc("GET /api/info", s.info)
 	mux.HandleFunc("GET /api/kubernetes/ping", s.ping)
 	mux.HandleFunc("GET /api/namespaces", s.namespaces)
+	mux.HandleFunc("GET /api/nodes", s.nodes)
 	mux.HandleFunc("POST /api/namespaces", s.createNamespace)
 	mux.HandleFunc("DELETE /api/namespaces/{name}", s.deleteNamespace)
 	// ?namespace= narrows to one namespace; without it these list every namespace.
@@ -98,12 +100,12 @@ func New(clusters []Cluster, web fs.FS, cfg config.Config) http.Handler {
 	mux.HandleFunc("GET /api/forwards", s.forwards)
 	mux.HandleFunc("POST /api/forwards", s.startForward)
 	mux.HandleFunc("DELETE /api/forwards/{id}", s.stopForward)
-	mux.Handle("/", http.FileServerFS(web))
+	mux.Handle("/", staticHandler(web))
 	h := sameOrigin(mux)
 	if loopbackAddr(cfg.Addr) {
 		h = loopbackHost(h) // the listener is loopback only (config.Validate); an unset Addr (tests) skips the check
 	}
-	return h
+	return secureHeaders(h)
 }
 
 // loopbackAddr reports whether a listen address is localhost or a loopback IP.
@@ -159,7 +161,7 @@ func ok(w http.ResponseWriter, v any) {
 func fail(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": scrub(err.Error())})
 }
 
 // kubeFail maps an API server status to the same HTTP status, else 502.
@@ -185,7 +187,7 @@ func (s *Server) info(w http.ResponseWriter, r *http.Request) {
 	for _, c := range s.clusters {
 		e := ""
 		if c.Err != nil {
-			e = c.Err.Error()
+			e = scrub(c.Err.Error())
 		}
 		list = append(list, cl{c.Name, c.Context, e})
 	}

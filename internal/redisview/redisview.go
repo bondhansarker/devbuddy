@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -167,7 +168,11 @@ func (m *Manager) Scan(ctx context.Context, name string, db int, match, typ stri
 		limit = 200
 	}
 	var keys []string
+	started := time.Now()
 	for i := 0; i < 100 && len(keys) < limit; i++ { // a sparse match needs several SCAN rounds
+		if i > 0 && time.Since(started) > scanBudget { // a slow or huge keyspace: hand back the cursor, "Load more" continues
+			break
+		}
 		var ks []string
 		var next uint64
 		var err error
@@ -362,6 +367,9 @@ func (m *Manager) SetString(ctx context.Context, name string, db int, key, value
 	}
 	return c.Set(ctx, key, value, goredis.KeepTTL).Err()
 }
+
+// scanBudget is how long one Scan call keeps looking for matches before it returns what it has and the cursor.
+var scanBudget = 2 * time.Second
 
 const maxExport = 200 // keys per export call
 

@@ -241,3 +241,30 @@ func TestCreateAndDeleteNamespaceRoutes(t *testing.T) {
 		t.Errorf("delete under read_only want 403, got %d", w.Code)
 	}
 }
+
+func TestNodesRoute(t *testing.T) {
+	w := do(newTestServer(), "GET", "/api/nodes", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"nodes":[]`) || !strings.Contains(w.Body.String(), `"metrics":false`) {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+}
+
+func TestPodForCarriesThePodDetails(t *testing.T) {
+	labels := map[string]string{"app": "web"}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "web-1", Namespace: "default", Labels: labels},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{
+			{Name: "app", Image: "img:1", Ports: []corev1.ContainerPort{{ContainerPort: 8080}}}, {Name: "side", Image: "img:2"}}},
+		Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}},
+	}
+	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "default"}, Spec: appsv1.DeploymentSpec{Selector: &metav1.LabelSelector{MatchLabels: labels}}}
+	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "default"}, Spec: corev1.ServiceSpec{Selector: labels}}
+	h := New([]Cluster{{Name: "test", Context: "test", Client: kube.NewWith(fake.NewSimpleClientset(pod, dep, svc))}}, fstest.MapFS{"index.html": {Data: []byte("hi")}}, config.Config{})
+	for _, p := range []string{"/api/deployments/default/web/pod", "/api/services/default/web/pod"} {
+		w := do(h, "GET", p, "")
+		b := w.Body.String()
+		if w.Code != 200 || !strings.Contains(b, `"pod":"web-1"`) || !strings.Contains(b, `"details":{"name":"web-1"`) || !strings.Contains(b, `"containers":["app","side"]`) || !strings.Contains(b, `"container_port":8080`) {
+			t.Fatalf("%s: %d %s", p, w.Code, b)
+		}
+	}
+}

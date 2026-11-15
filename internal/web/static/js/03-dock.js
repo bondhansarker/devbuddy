@@ -129,16 +129,28 @@ function saveLogTabs() {
   const l = [...tabs.values()].filter((t) => t.log).map((t) => t.log);
   try { localStorage.setItem(LOGTABS, JSON.stringify(l)); } catch {}
 }
-function restoreLogTabs() {
-  if (!pods.length && !data.deployments.length && !data.services.length) return; // lists failed: keep what is saved
-  let l = [];
-  try { l = JSON.parse(localStorage.getItem(LOGTABS)) || []; } catch {}
-  l.forEach((x) => {
+function restoreLogTabs(saved, lists) {
+  if (!Object.values(lists).some((l) => l?.length)) return; // the lists failed: keep what is saved
+  saved.forEach((x) => {
     const kind = x.kind || 'pods';
-    const p = (kind === 'pods' ? pods : data[kind]).find((q) => q.cluster === x.cluster && q.namespace === x.namespace && q.name === x.pod);
+    const p = (lists[kind] || []).find((q) => q.cluster === x.cluster && q.namespace === x.namespace && q.name === x.pod);
     if (p) openLogs(p, x.container, kind);
   });
   saveLogTabs(); // drops tabs whose pod is gone
+}
+// After a connection is switched on: reopen its saved shells and log tabs. Only the lists those tabs need are read
+// (all namespaces, whatever the filter says); with nothing saved, no list is read at all.
+async function restoreTabs(name) {
+  let logs = [];
+  try { logs = (JSON.parse(localStorage.getItem(LOGTABS)) || []).filter((x) => x.cluster === name); } catch {}
+  const shells = (await api('/api/shells').catch(() => [])).filter((s) => s.cluster === name); // DevBuddy's own server: no cluster call
+  if (!logs.length && !shells.length) return;
+  const kinds = new Set(logs.map((x) => x.kind || 'pods'));
+  if (shells.length) kinds.add('pods');
+  const lists = {};
+  await Promise.all([...kinds].map(async (k) => { try { lists[k] = tag(await api(kq(`/api/${k}?namespace=`, name)), name); } catch {} }));
+  restoreShells(shells, lists.pods);
+  restoreLogTabs(logs, lists);
 }
 // kind: "pods" (one pod's container), or "deployments" / "services" (every pod they select, merged).
 function openLogs(p, container, kind = 'pods') {
@@ -210,7 +222,7 @@ function openLogs(p, container, kind = 'pods') {
         lines.push(d);
         pending = pending.filter((m) => m.after !== line || (box.append(dividerEl(m.time)), false)); // place and drop the matched marks
         if (isHit(d)) { d.classList.add('hit'); highlight(d, q()); hits.push(d); count(); }
-        if (lines.length > 10000) lines.shift().remove();
+        if (lines.length > 5000) lines.shift().remove();
         if (atEnd) box.scrollTop = box.scrollHeight;
       };
       const stop = () => { if (es) es.close(); es = null; };
@@ -319,10 +331,9 @@ async function openShell(p, container) {
   });
 }
 // after a page reload: reopen a tab for every shell still running on the server
-async function restoreShells() {
-  if (!pods.length) return; // pod list failed: do not judge shells by it
-  for (const sh of await api('/api/shells').catch(() => [])) {
-    if (sh.cluster !== cluster) continue; // another connection's shell: it stays alive, its pods are not loaded now
+async function restoreShells(shells, pods) {
+  if (!pods?.length) return; // the pod list failed: do not judge shells by it
+  for (const sh of shells) {
     const p = pods.find((x) => x.namespace === sh.namespace && x.name === sh.pod);
     if (p) openShell(p, sh.container);
     else api(`/api/shells?${new URLSearchParams(sh)}`, { method: 'DELETE' }).catch(() => {});
