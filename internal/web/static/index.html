@@ -29,11 +29,10 @@
         <div class="gbody" data-gbody="es"><div id="enav"></div></div>
       </div>
     </nav>
-    <button type="button" id="discall" class="discall" hidden title="Disconnect every connection (Kubernetes, Redis, Elasticsearch)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M6.4 6.4a8 8 0 1 0 11.2 0"/></svg><span>Disconnect all</span></button>
     <div class="side-foot">
       <div><span id="prod" class="pill bad" hidden title="The active Kubernetes connection looks like production">production</span></div>
-      <label class="f"><span class="t">Theme</span><select id="theme"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     </div>
+    <button type="button" id="settingsbtn" class="settingsbtn" title="Settings"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
   </aside>
   <button type="button" id="sidetoggle" class="sm" title="Collapse / expand the sidebar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg></button>
   <div class="content">
@@ -47,7 +46,7 @@
 
     <div id="knotice" class="card knotice" hidden><b>Kubernetes is not connected.</b> <span id="knoticetext"></span> <button type="button" id="knoticego" class="sm">Open Clusters</button></div>
 
-    <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button><button type="button" id="rexport" hidden></button><span id="refreshctl" class="refreshctl" hidden><button type="button" id="refreshnow" class="icon" title="Refresh now"></button><label class="autorefresh" title="Reload the open page every few seconds (refresh_seconds in the config)"><input type="checkbox" id="autorefresh"> Auto refresh</label></span></div>
+    <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button><button type="button" id="rexport" hidden></button><span id="refreshctl" class="refreshctl" hidden><button type="button" id="refreshnow" class="icon" title="Refresh now"></button></span></div>
 
     <section id="namespacesView">
       <div class="bar" style="margin-bottom:10px"><button type="button" id="nscreate" class="primary" hidden></button></div>
@@ -166,6 +165,14 @@
 <dialog id="esdlg" class="dlg"><div class="head"><strong id="estitle"></strong><button type="button" id="escopy"></button><button type="button" id="esclose"></button></div><div id="esbody"></div></dialog>
 
 <dialog id="askdlg" class="dlg ask"><form id="askform"><div class="head"><strong id="asktitle"></strong><button type="button" id="askx" class="icon"></button></div><div id="askbody"></div><div class="foot"><button type="button" id="askcancel">Cancel</button><button type="submit" id="askok"></button></div></form></dialog>
+
+<div id="settingsdlg" class="settingspop" hidden><div class="head"><strong>Settings</strong><button type="button" id="setx" class="icon"></button></div>
+<div id="setbody">
+  <section><h4>Appearance</h4><div class="setrow"><span>Theme</span><div class="seg" id="themeseg" role="group" aria-label="Theme"><button type="button" data-theme="light">Light</button><button type="button" data-theme="dark">Dark</button></div></div></section>
+  <section><h4>Refresh</h4><label class="setrow"><span>Auto refresh <small class="muted">reloads the open page every <b id="setsecs"></b> s</small></span><input type="checkbox" id="autorefresh"></label></section>
+  <section><h4>Connections</h4><div class="setrow"><span>Switch every connection off <small class="muted">Kubernetes, Redis and Elasticsearch; open shells keep running</small></span><button type="button" id="discall" class="sm danger"></button></div></section>
+  <section><h4>Saved state</h4><div class="setrow"><span>Forget what this browser remembers <small class="muted">connections that were on, page, filters, open tabs, theme, ports</small></span><button type="button" id="resetstate" class="sm danger"></button></div></section>
+</div></div>
 
 <div id="msg" hidden></div>
 <script src="vendor/xterm.js"></script>

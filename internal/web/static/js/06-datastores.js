@@ -34,6 +34,7 @@ function syncDsPill(kind) {
   const d = ds[kind], n = dsConnected(kind).length;
   $(d.pill).textContent = ''; $(d.pill).title = n ? `${n} connected` : 'not connected'; // shown as a coloured dot
   $(d.pill).className = 'pill ' + (n ? 'ok' : '');
+  saveSession();
 }
 
 // the sidebar: each connection is a parent with a switch; switched on, all its pages are its children
@@ -79,6 +80,7 @@ function renderDsConns(kind) {
 }));
 
 async function connectDs(kind, name) { // the only place that contacts a server before you use it
+  armSession();
   const d = ds[kind], st = d.state[name];
   if (st.status === 'connecting') return false;
   Object.assign(st, { status: 'connecting', error: '' });
@@ -94,6 +96,7 @@ async function connectDs(kind, name) { // the only place that contacts a server 
   return st.status === 'connected';
 }
 function disconnectDs(kind, name) { // drops that connection's loaded data
+  armSession();
   const d = ds[kind];
   Object.assign(d.state[name], { status: 'idle', error: '' });
   delete d.stash[name];
@@ -109,7 +112,7 @@ function disconnectDs(kind, name) { // drops that connection's loaded data
 async function toggleDs(kind, name) { // the switch, or Connect: on = connect, off = disconnect
   const d = ds[kind];
   if (d.state[name].status === 'connected') return disconnectDs(kind, name);
-  if (await connectDs(kind, name) && !d.active) activateDs(kind, name); // the first connected one becomes the active one
+  if (await connectDs(kind, name) && (!d.active || name === prevSession[kind]?.active)) { activateDs(kind, name); resumeDs(kind, name); } // the first one connected, or the one that was active last time, becomes the active one
 }
 function activateDs(kind, name) { // park the active connection's data, bring this one's back
   const d = ds[kind];
@@ -117,11 +120,12 @@ function activateDs(kind, name) { // park the active connection's data, bring th
   if (d.active) d.stash[d.active] = d.save();
   d.active = name;
   d.load(d.stash[name]);
+  saveSession();
 }
 async function openDs(kind, name, tab) { // one page of a connected server / cluster
   const d = ds[kind];
   if (d.state[name].status !== 'connected') return showView(d.list);
   activateDs(kind, name);
   d.tab = tab;
-  showView(d.detail);
+  showView(d.detail); // saves the session too
 }

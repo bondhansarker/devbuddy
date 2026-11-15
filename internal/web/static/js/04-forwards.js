@@ -39,7 +39,7 @@ async function forward(p, svc) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cluster: p.cluster, namespace: p.namespace, pod: p.name, container_port: cp, local_port: lp }),
     });
-    try { localStorage.setItem(FWDKEY, JSON.stringify({ ...fwdMemory(), [id]: { container_port: f.container_port, local_port: f.local_port, service_port: sp } })); } catch {}
+    try { localStorage.setItem(FWDKEY, JSON.stringify(Object.fromEntries(Object.entries({ ...fwdMemory(), [id]: { container_port: f.container_port, local_port: f.local_port, service_port: sp } }).slice(-100)))); } catch {}
     ktoast(p.namespace, `port-forward pod/${p.name} ${f.local_port}:${f.container_port}`, `Forwarding from 127.0.0.1:${f.local_port} -> ${f.container_port}`);
     loadForwards();
   } catch (e) { ktoast(p.namespace, `port-forward pod/${p.name} ${lp || cp}:${cp}`, e.message); }

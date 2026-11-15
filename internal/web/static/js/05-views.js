@@ -12,6 +12,7 @@ function syncKubernetes() {
   kWhy = 'No Kubernetes cluster is connected. Open Clusters and press Connect, or switch one on in the sidebar.';
   $('kpill').textContent = ''; $('kpill').title = n ? `${n} connected` : 'not connected'; // shown as a coloured dot
   $('kpill').className = 'pill ' + (n ? 'ok' : '');
+  saveSession();
   $('prod').hidden = !(ci && kOk && /prod/i.test(ci.name + ci.context));
 }
 function syncK8sBar() {
@@ -42,8 +43,9 @@ function renderKNav() {
 }
 // the global button: shown while anything is connected, drops every connection
 const anyConnected = () => clusters.some((c) => kstate[c.name].status === 'connected') || ['redis', 'es'].some((k) => dsConnected(k).length);
-function syncDiscAll() { $('discall').hidden = !anyConnected(); }
+function syncDiscAll() { $('discall').disabled = !anyConnected(); }
 $('discall').onclick = () => {
+  closeSettings();
   clusters.filter((c) => kstate[c.name].status === 'connected').forEach((c) => disconnectK8s(c.name));
   ['redis', 'es'].forEach((k) => dsConnected(k).forEach((c) => disconnectDs(k, c.name)));
 };
@@ -66,7 +68,7 @@ function restoreActive(name) {
   const s = kstore[name];
   data = s?.data ?? { namespaces: [], services: [], deployments: [], jobs: [] };
   pods = s?.pods ?? [];
-  selected = s?.selected ?? [];
+  selected = s?.selected ?? savedNs(name);
   nsSel.set(selected);
   statusSel.set(s?.statuses ?? []);
   ownerSel.set(s?.owners ?? []);
@@ -78,6 +80,7 @@ async function setCluster(name) { // make a connected cluster the active one
   cluster = name;
   restoreActive(name);
   syncKubernetes();
+  saveSession();
   ['namespaces', 'services', 'deployments', 'jobs', 'pods'].forEach(render);
   if (!restored[name]) { // first time: load, then reopen this connection's shells and log tabs
     restored[name] = true;
@@ -104,6 +107,7 @@ function renderKconns() {
   }).join('') : '<tr><td colspan="4" class="muted">no Kubernetes cluster in the config: add a "kubernetes" list</td></tr>';
 }
 async function connectK8s(name) { // the only place that talks to a cluster before you use it
+  armSession();
   const st = kstate[name];
   if (st.status === 'connecting') return false;
   Object.assign(st, { status: 'connecting', error: '' });
@@ -119,6 +123,7 @@ async function connectK8s(name) { // the only place that talks to a cluster befo
   return st.status === 'connected';
 }
 function disconnectK8s(name) { // drops that connection's lists; its shells keep running until you close the tab
+  armSession();
   Object.assign(kstate[name], { status: 'idle', error: '' });
   delete kstore[name]; delete kbadges[name]; delete restored[name];
   if (cluster === name) {
@@ -135,8 +140,7 @@ $('kconnrows').addEventListener('click', async (e) => {
   const name = b.closest('tr').dataset.n;
   if (b.dataset.a === 'disconnect') return disconnectK8s(name);
   if (b.dataset.a === 'connect') {
-    if (await connectK8s(name) && !kOk) await setCluster(name); // the first connection becomes the active one
-    return;
+    return toggleK8s(name); // connects it (it is off here); the first one, or last time's active one, becomes the active connection
   }
 });
 
@@ -169,6 +173,7 @@ function showView(v) {
   if (v === 'es' && !dsOk('es')) return showView('esconns');
   syncRedisBar();
   syncK8sBar();
+  saveSession();
   if (v === 'kconns') return renderKconns();
   if (v === 'rconns') return renderDsConns('redis');
   if (v === 'esconns') return renderDsConns('es');
@@ -177,7 +182,7 @@ function showView(v) {
 }
 async function toggleK8s(name) { // the switch in the sidebar: on = connect, off = disconnect
   if (kstate[name].status === 'connected') return disconnectK8s(name);
-  if (await connectK8s(name) && !kOk) await setCluster(name); // the first one connected becomes the active one
+  if (await connectK8s(name) && (!kOk || name === prevSession.k8s?.active)) { await setCluster(name); resumeK8s(name); } // the first one connected, or the one that was active last time, becomes the active one
 }
 // ---- collapsing: whole groups (Kubernetes, Redis, Elasticsearch) and each connection; remembered
 let navState = {};
@@ -230,9 +235,17 @@ function applyTheme(t) {
   if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
   else delete document.documentElement.dataset.theme;
 }
-try { $('theme').value = localStorage.getItem('theme') || 'auto'; } catch {}
-applyTheme($('theme').value);
-$('theme').onchange = () => {
-  applyTheme($('theme').value);
-  try { localStorage.setItem('theme', $('theme').value); } catch {}
-};
+// Theme: Light or Dark. With nothing saved the OS preference applies and its button is shown selected.
+const osTheme = () => (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+function markTheme(t) { document.querySelectorAll('#themeseg button').forEach((b) => { b.classList.toggle('on', b.dataset.theme === t); b.setAttribute('aria-pressed', b.dataset.theme === t); }); }
+let savedTheme = null;
+try { savedTheme = localStorage.getItem('theme'); } catch {}
+if (savedTheme !== 'light' && savedTheme !== 'dark') savedTheme = null;
+applyTheme(savedTheme || 'auto');
+markTheme(savedTheme || osTheme());
+$('themeseg').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-theme]');
+  if (!b) return;
+  applyTheme(b.dataset.theme); markTheme(b.dataset.theme);
+  try { localStorage.setItem('theme', b.dataset.theme); } catch {}
+});

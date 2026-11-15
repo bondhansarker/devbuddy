@@ -107,6 +107,7 @@ const NO_OWNER = 'None';
 
 function setNs(list) {
   selected = list;
+  saveSession();
   nsSel.set(list);
   data.services = []; data.deployments = []; data.jobs = []; pods = [];
   ['services', 'deployments', 'jobs', 'pods'].forEach(render);
