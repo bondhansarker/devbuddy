@@ -17,11 +17,12 @@ $('sidetoggle').onclick = () => setSide(!document.body.classList.contains('colla
     settings = info;
     clusters = info.clusters;
     clusters.forEach((c) => (kstate[c.name] = { status: c.error ? 'failed' : 'idle', error: c.error || '' })); // nothing is contacted yet
+    applyGroups();
     syncKubernetes();
     renderKNav();
     showView('kconns'); // the connection list: you connect, nothing does it for you
-    initRedis();
-    initEs();
+    initDs('redis', await api('/api/redis').catch(() => [])); // only the config: no server is contacted
+    initDs('es', await api('/api/es').catch(() => []));
     loadForwards();
     // started after the config is known: refresh_seconds is the poll interval
     setInterval(() => { if (!document.hidden) { if (view !== 'forwards' && !busy[view]) load(view); loadForwards(); } }, settings.refresh_seconds * 1000);

@@ -12,13 +12,21 @@
   <aside>
     <div class="brand"><span class="t">DevBuddy</span><button type="button" id="sidetoggle" class="sm" title="Collapse / expand the sidebar">«</button></div>
     <nav>
-      <div class="grp first"><span>Kubernetes</span><span class="pill" id="kpill">…</span></div>
-      <button type="button" title="Clusters" data-view="kconns" class="on"><span class="ico">C</span><span class="lbl">Clusters</span> <span class="n" id="kconncount"></span></button>
-      <div id="knav"></div>
-      <button type="button" title="Port forwards" data-view="forwards"><span class="ico">F</span><span class="lbl">Port forwards</span> <span class="n" id="fwcount"></span></button>
-      <div class="grp" id="redissep" hidden><span>Data stores</span></div>
-      <button type="button" title="Redis" data-view="redis" id="redisnav" hidden><span class="ico">R</span><span class="lbl">Redis</span> <span class="n" id="rediscount"></span></button>
-      <button type="button" title="Elasticsearch" data-view="es" id="esnav" hidden><span class="ico">E</span><span class="lbl">Elasticsearch</span> <span class="n" id="escount"></span></button>
+      <div id="ksec">
+        <div class="grp first"><button type="button" class="gt" data-gtoggle="k8s" title="Collapse / expand">▾</button><button type="button" class="gn" data-gopen="kconns" title="Overview of the Kubernetes clusters">Kubernetes</button><span class="pill" id="kpill">…</span></div>
+        <div class="gbody" data-gbody="k8s">
+          <div id="knav"></div>
+          <button type="button" title="Port forwards" data-view="forwards"><span class="ico">F</span><span class="lbl">Port forwards</span> <span class="n" id="fwcount"></span></button>
+        </div>
+      </div>
+      <div id="rsec" hidden>
+        <div class="grp"><button type="button" class="gt" data-gtoggle="redis" title="Collapse / expand">▾</button><button type="button" class="gn" data-gopen="rconns" title="Overview of the Redis servers">Redis</button><span class="pill" id="rpill">…</span></div>
+        <div class="gbody" data-gbody="redis"><div id="rnav"></div></div>
+      </div>
+      <div id="esec" hidden>
+        <div class="grp"><button type="button" class="gt" data-gtoggle="es" title="Collapse / expand">▾</button><button type="button" class="gn" data-gopen="esconns" title="Overview of the Elasticsearch clusters">Elasticsearch</button><span class="pill" id="epill">…</span></div>
+        <div class="gbody" data-gbody="es"><div id="enav"></div></div>
+      </div>
     </nav>
     <div class="side-foot">
       <div><span class="t">Cluster</span><div id="ctx" style="word-break:break-all">…</div><span id="prod" class="pill bad" hidden>production</span></div>
@@ -30,13 +38,13 @@
       <div><h2 id="secTitle"></h2><p id="secDesc" class="muted"></p></div>
     </div>
 
-    <div class="rhead" id="rhead" hidden><button type="button" id="rback" class="sm">← Connections</button><strong id="rname"></strong><span class="t" id="raddr"></span></div>
+    <div class="rhead" id="rhead" hidden><strong id="rname"></strong><span class="t" id="raddr"></span></div>
 
-    <div class="rhead" id="eshead" hidden><button type="button" id="esback" class="sm">← Connections</button><strong id="esname"></strong><span class="t" id="esaddr"></span></div>
+    <div class="rhead" id="eshead" hidden><strong id="esname"></strong><span class="t" id="esaddr"></span></div>
 
     <div id="knotice" class="card knotice" hidden><b>Kubernetes is not connected.</b> <span id="knoticetext"></span> <button type="button" id="knoticego" class="sm">Open Clusters</button></div>
 
-    <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><select id="essrv" hidden title="Elasticsearch connection"></select><select id="rsrv" hidden title="Redis server"></select><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button></div>
+    <div class="bar" id="bar"><input id="search" placeholder="Search" autocomplete="off" style="width:320px;max-width:100%"><span id="nsdd"></span><span id="statusdd" hidden></span><span id="ownerdd" hidden></span><span id="rdbdd" hidden></span><span id="esidxdd" hidden></span><button type="button" id="rdelsel" class="danger" hidden>Delete selected</button></div>
 
     <section id="namespacesView">
       <div class="card"><table>
@@ -73,14 +81,24 @@
       </table></div>
     </section>
 
+    <section id="rconnsView" hidden>
+      <div class="card"><table>
+        <thead><tr><th class="w-conn">Server</th><th class="w-addr">Address</th><th>Status</th><th class="w-act3">&nbsp;</th></tr></thead>
+        <tbody id="rconnrows"></tbody>
+      </table></div>
+      <p class="t" style="margin-top:10px">Nothing connects until you press Connect (or switch the server on in the sidebar). A connected server shows its Keys and Console under its name.</p>
+    </section>
+
+    <section id="esconnsView" hidden>
+      <div class="card"><table>
+        <thead><tr><th class="w-conn">Cluster</th><th class="w-addr">Address</th><th>Status</th><th class="w-act3">&nbsp;</th></tr></thead>
+        <tbody id="esconnrows"></tbody>
+      </table></div>
+      <p class="t" style="margin-top:10px">Nothing connects until you press Connect (or switch the cluster on in the sidebar). A connected cluster shows its Documents, Indices and Query under its name.</p>
+    </section>
+
     <section id="redisView" hidden>
-      <div id="rlist">
-        <div class="card"><table>
-          <thead><tr><th class="w-conn">Connection</th><th class="w-addr">Address</th><th>Status</th><th class="num w-keys">Keys</th><th class="w-act2"></th></tr></thead>
-          <tbody id="rconns"></tbody>
-        </table></div>
-      </div>
-      <div id="rdetail" hidden>
+      <div id="rdetail">
       <div class="rtabs"><button type="button" data-t="keys" class="on">Keys</button><button type="button" data-t="console">Console</button></div>
       <div id="rkeys">
       <div class="card"><table>
@@ -94,13 +112,7 @@
     </section>
 
     <section id="esView" hidden>
-      <div id="eslist">
-        <div class="card"><table>
-          <thead><tr><th class="w-conn">Connection</th><th class="w-addr">Address</th><th>Status</th><th class="w-act3"></th></tr></thead>
-          <tbody id="esconns"></tbody>
-        </table></div>
-      </div>
-      <div id="esdetail" hidden>
+      <div id="esdetail">
         <div class="rtabs"><button type="button" data-t="docs" class="on">Documents</button><button type="button" data-t="indices">Indices</button><button type="button" data-t="query">Query</button></div>
         <div id="esdocs">
           <div class="card"><table>
@@ -157,8 +169,9 @@
 <script src="js/03-dock.js"></script>
 <script src="js/04-forwards.js"></script>
 <script src="js/05-views.js"></script>
-<script src="js/06-redis.js"></script>
-<script src="js/07-elasticsearch.js"></script>
-<script src="js/08-boot.js"></script>
+<script src="js/06-datastores.js"></script>
+<script src="js/07-redis.js"></script>
+<script src="js/08-elasticsearch.js"></script>
+<script src="js/09-boot.js"></script>
 </body>
 </html>

@@ -162,3 +162,16 @@ body.collapsed nav .chev, body.collapsed nav .sw { display:none; } body.collapse
 body.collapsed nav .kids { margin:0; padding:0; border-left:none; } body.collapsed nav button.kc { padding:9px 0; }
 #kconnsView table { table-layout:fixed; } #kconnsView .w-conn { width:200px; } #kconnsView .w-addr { width:320px; } #kconnsView .w-act3 { width:280px; }
 nav .n:empty { display:none; } /* no count yet: no empty bubble */
+
+/* collapsible groups and nodes (an icon-only sidebar ignores the collapsing: every icon stays reachable) */
+nav .grp { gap:2px; justify-content:flex-start; }
+nav .grp .gt, nav .grp .gn { border:none; background:none; padding:2px 4px; color:var(--muted); font:inherit; text-transform:inherit; letter-spacing:inherit; font-weight:inherit; cursor:pointer; }
+nav .grp .gt { width:16px; padding:2px 0; } nav .grp .gn:hover, nav .grp .gt:hover { color:var(--fg); background:none; border:none; }
+nav .grp .gn.on { color:var(--accent); } nav .grp .pill { margin-left:auto; }
+body:not(.collapsed) nav .gbody.closed, body:not(.collapsed) nav .kids.closed { display:none; }
+nav .chev { cursor:pointer; padding:2px 4px 2px 0; }
+body.collapsed nav .grp .gt, body.collapsed nav .grp .gn { display:none; }
+nav .grp .pill { flex:none; } nav .grp .gn { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* three levels: the group heading, its connections one step in, their pages one step further */
+nav .gbody { margin:2px 0 4px 10px; padding-left:6px; border-left:1px solid var(--line-soft); }
+body.collapsed nav .gbody { margin:0; padding:0; border-left:none; }

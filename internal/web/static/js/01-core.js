@@ -45,6 +45,7 @@ function multiSelect(host, allLabel, unit, onChange) {
     // options sets the choices (plus anything still ticked, so it can be unticked); the list is rebuilt only when it changed.
     options(values, extra = {}) {
       ms.extra = extra;
+      ms.vals = values; // kept so a connection's choices can be parked and restored
       const all = [...new Set([...values, ...ms.selected])].sort(ms.cmp);
       const key = all.join('\n') + JSON.stringify(extra);
       if (key !== ms.key) {

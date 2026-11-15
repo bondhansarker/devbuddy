@@ -4,7 +4,7 @@
 
 - Renamed to **DevBuddy**.
 - Kubernetes is its own section with several connections (`kubernetes` list in the config) and a Clusters page: nothing connects until you press Connect or switch a cluster on in the sidebar; each cluster is a parent node (with an on/off switch) whose pages are its children, with its own lists.
-- Redis page (keys, console) and a read-only-by-default Elasticsearch / OpenSearch viewer.
+- Redis (keys, console) and Elasticsearch / OpenSearch (documents, indices, query, delete) are built the same way: flat connections with a switch under a collapsible group, nothing connects until switched on, each connection keeps its own state; Kubernetes, Redis and Elasticsearch groups and each connected node fold.
 
 ## 0.1.0
 

@@ -2,74 +2,49 @@
 // (Plain scripts share one global scope: index.html loads them in numeric order.)
 
 // ---- redis: db indexes (several at once), SCAN search, view and delete keys
-const rd = { keys: [], cursors: {}, sel: new Set(), gen: 0, open: false, err: '', conns: [], sort: '' };
+const rd = { keys: [], cursors: {}, sel: new Set(), gen: 0, err: '', conns: [], sort: '', dbsLoaded: false };
 const rdbSel = multiSelect($('rdbdd'), 'Select a database', 'databases', () => redisDbsChanged());
 rdbSel.fmt = (v) => `db${v}`;
 rdbSel.cmp = (a, b) => a - b;
 rdbSel.set(['0']);
-const rsrv = () => $('rsrv').value;
+const rsrv = () => ds.redis.active; // the active Redis connection
 const rdbs = () => rdbSel.selected.map(Number); // the ticked db indexes
 const rdb = () => rdbs()[0] ?? 0; // the console uses the first one
 const rq = (extra = {}, db = rdb()) => new URLSearchParams({ db, ...extra });
 const rid = (k) => `${k.db}\u0001${k.key}`;
 const fmtTtl = (s) => (s < 0 ? '—' : s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`);
 
-async function initRedis() { // at boot: the Redis page only exists when the config names a server
-  const list = await api('/api/redis').catch(() => []);
-  rd.conns = list;
-  $('redisnav').hidden = !list.length;
-  $('redissep').hidden = !list.length && $('esnav').hidden;
-  $('rediscount').textContent = list.length;
-  $('rsrv').innerHTML = list.map((i) => `<option value="${esc(i.name)}" title="${esc(i.addr)}">${esc(i.name)}</option>`).join('');
-}
-// The Redis page: a list of connections first; opening one shows Keys and Console for it,
-// with the filters (db indexes, and a dropdown to jump to another connection) in the filter bar.
+// Each Redis connection keeps its own keys, db choice, search, type filter and sort: parked here when you
+// move to another connection, brought back when you return.
+ds.redis.save = () => ({ keys: rd.keys, cursors: rd.cursors, sel: rd.sel, err: rd.err, sort: rd.sort, dbsLoaded: rd.dbsLoaded,
+  dbs: rdbSel.selected, vals: rdbSel.vals, extra: rdbSel.extra, q: $('rkeysearch').value, type: $('rtype').value, tab: ds.redis.tab });
+ds.redis.load = (s) => {
+  rd.gen++; // answers still on their way for the previous connection are dropped
+  Object.assign(rd, { keys: s?.keys ?? [], cursors: s?.cursors ?? {}, sel: s?.sel ?? new Set(), err: s?.err ?? '', sort: s?.sort ?? '', dbsLoaded: s?.dbsLoaded ?? false });
+  rdbSel.options(s?.vals ?? [], s?.extra ?? {});
+  rdbSel.set(s?.dbs ?? ['0']);
+  $('rkeysearch').value = s?.q ?? ''; $('rtype').value = s?.type ?? '';
+};
 function syncRedisBar() {
   syncEsBar();
-  const on = view === 'redis', open = on && rd.open;
-  $('rhead').hidden = !open; // connection name on top, the filters under it
-  $('rdbdd').hidden = !open; $('rsrv').hidden = !open;
-  $('search').hidden = on || view === 'es'; // the key / document search lives in the table header
-  if (!open) $('rdelsel').hidden = true;
+  const on = view === 'redis';
+  $('rhead').hidden = !on; // connection name on top, the filters under it
+  $('rdbdd').hidden = !on;
+  $('search').hidden = on || view === 'es' || view === 'rconns' || view === 'esconns' || view === 'kconns'; // the key / document search lives in the table header
+  if (!on) $('rdelsel').hidden = true;
 }
-function showRedis() {
-  rd.open = false;
-  $('rlist').hidden = false; $('rdetail').hidden = true;
-  syncRedisBar();
-  $('rconns').innerHTML = rd.conns.map((c) => `<tr data-n="${esc(c.name)}"><td class="name"><a href="#" data-a="keys" style="color:inherit;text-decoration:none">${esc(c.name)}</a></td>
-    <td>${esc(c.addr)} ${c.tls ? pill('tls') : ''}</td><td class="st muted">checking…</td><td class="num kc">—</td>
-    <td class="actions"><button type="button" class="sm" data-a="keys">Keys</button><button type="button" class="sm" data-a="console">Console</button></td></tr>`).join('');
-  rd.conns.forEach(async (c) => { // status and key count of every connection, in parallel
-    const row = $('rconns').querySelector(`tr[data-n="${CSS.escape(c.name)}"]`), t0 = performance.now();
-    try {
-      const r = await api(`/api/redis/${encodeURIComponent(c.name)}/dbs`);
-      if (!row.isConnected) return;
-      row.querySelector('.st').innerHTML = `${pill('connected', 'ok')} <span class="muted">${Math.round(performance.now() - t0)} ms</span>`;
-      row.querySelector('.kc').textContent = r.dbs.length ? r.dbs.reduce((n, d) => n + d.keys, 0) : '—';
-    } catch (e) {
-      if (row.isConnected) row.querySelector('.st').innerHTML = `${pill('unreachable', 'bad')} <span class="muted" title="${esc(e.message)}">${esc(e.message.slice(0, 70))}</span>`;
-    }
-  });
-}
-$('rconns').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-a]');
-  if (!b) return;
-  e.preventDefault();
-  openConn(b.closest('tr').dataset.n, b.dataset.a);
-});
-async function openConn(name, tab) {
-  $('rsrv').value = name;
-  const c = rd.conns.find((x) => x.name === name);
+// the Redis page of the active connection: Keys or Console (the sidebar picks which)
+async function showRedis() {
+  const name = rsrv(), c = ds.redis.conns.find((x) => x.name === name);
   $('rname').textContent = name; $('raddr').textContent = c ? c.addr : '';
-  rd.open = true;
-  $('rlist').hidden = true; $('rdetail').hidden = false;
-  await loadRedisDBs();
-  setRTab(tab);
+  if (!rd.dbsLoaded) { rd.dbsLoaded = true; await loadRedisDBs(); }
+  setRTab(ds.redis.tab);
 }
-$('rback').onclick = showRedis;
 async function loadRedisDBs() {
+  const name = rsrv();
   try {
-    const r = await api(`/api/redis/${encodeURIComponent(rsrv())}/dbs`);
+    const r = await api(`/api/redis/${encodeURIComponent(name)}/dbs`);
+    if (name !== rsrv()) return; // another connection became active meanwhile
     const counts = Object.fromEntries(r.dbs.map((d) => [d.db, d.keys]));
     const idx = [...new Set([...Array(Math.min(r.databases, 16)).keys(), ...r.dbs.map((d) => d.db)])];
     rdbSel.options(idx.map(String), Object.fromEntries(Object.entries(counts).map(([k, v]) => [k, v])));
@@ -116,13 +91,6 @@ function renderRedis() {
 }
 let rTimer;
 const redisSearchSoon = () => { clearTimeout(rTimer); rTimer = setTimeout(() => loadRedisKeys(true), 350); };
-$('rsrv').onchange = async () => { // jump to another connection
-  const c = rd.conns.find((x) => x.name === rsrv());
-  $('rname').textContent = rsrv(); $('raddr').textContent = c ? c.addr : '';
-  await loadRedisDBs();
-  redisDbsChanged();
-  if (rtab === 'console') showConsole();
-};
 $('rmore').onclick = () => loadRedisKeys(false);
 $('rtype').onchange = () => loadRedisKeys(true); // the server filters by type
 $('rttlth').onclick = () => { rd.sort = { '': 'asc', asc: 'desc', desc: '' }[rd.sort]; renderRedis(); }; // header click: soonest, longest, off
@@ -198,6 +166,8 @@ $('rdclose').onclick = () => $('redisdlg').close();
 let rtab = 'keys';
 function setRTab(t) {
   rtab = t;
+  ds.redis.tab = t;
+  markNav();
   document.querySelectorAll('#redisView .rtabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
   $('rkeys').hidden = t !== 'keys'; $('rconsole').hidden = t !== 'console';
   syncRedisBar(); // the search box is for keys
@@ -265,7 +235,7 @@ function makeShell(name) {
     try { localStorage.setItem(hkey, JSON.stringify(hist)); } catch {}
     const word = cmd.split(/\s+/)[0].toLowerCase();
     const sel = cmd.match(/^select\s+(\d+)$/i); // SELECT never reaches the server (shared connections): it ticks that db in the filter bar
-    if (['exit', 'quit', 'logout'].includes(word)) { term.write('logout\r\n'); buf = ''; return showRedis(); }
+    if (['exit', 'quit', 'logout'].includes(word)) { term.write('logout\r\n'); buf = ''; return showView('rconns'); }
     if (word === 'clear') { term.clear(); return newPrompt(); }
     if (word === 'help') { out('Commands go to the server one at a time.\nTab completes commands and key names, up/down recall history, Ctrl+L clears, Ctrl+C cancels the line,\nSELECT n switches db, exit (or Ctrl+D on an empty line) goes back to the connections.'); return newPrompt(); }
     if (sel) {
@@ -297,7 +267,7 @@ function makeShell(name) {
     switch (d) {
       case '\r': return submit();
       case '\x03': term.write('^C\r\n'); return newPrompt();
-      case '\x04': if (!buf) { term.write('logout\r\n'); return showRedis(); } return;
+      case '\x04': if (!buf) { term.write('logout\r\n'); return showView('rconns'); } return;
       case '\x0c': term.clear(); return redraw();
       case '\t': return complete();
       case '\x7f': if (pos > 0) { buf = buf.slice(0, pos - 1) + buf.slice(pos); pos--; redraw(); } return;
@@ -327,7 +297,7 @@ function makeShell(name) {
     });
   });
 
-  const c = rd.conns.find((x) => x.name === name);
+  const c = ds.redis.conns.find((x) => x.name === name);
   term.write(`\x1b[1m${name}\x1b[0m ${c ? '(' + c.addr + ')' : ''}  Tab completes, ↑↓ history, "help" for more, "exit" to leave\r\n`);
   term.write('connecting… ');
   api(`/api/redis/${encodeURIComponent(name)}/command`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ db: rdb(), command: 'PING' }) })
