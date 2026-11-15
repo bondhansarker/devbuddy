@@ -347,3 +347,12 @@ nav .sw { width:26px; height:15px; } nav .sw i { width:9px; height:9px; } nav .s
 nav { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
 aside > .side-foot, aside > .sidebtns, aside > .brand { flex:none; }
 body.collapsed nav { overflow-x:hidden; }
+/* URLs in logs */
+:root { --url-call:#b45309; --url-own:#0b6bcb; --url-ext:#7c3aed; } :root[data-theme="dark"] { --url-call:#e3b341; --url-own:#7ab7ff; --url-ext:#c4a1ff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="dark"]) { --url-call:#e3b341; --url-own:#7ab7ff; --url-ext:#c4a1ff; } }
+.url { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.94em; padding:0 4px; border-radius:4px; cursor:copy; white-space:nowrap; background:color-mix(in srgb, currentColor 10%, transparent); }
+.url i { font-style:normal; opacity:.6; } .url b { font-weight:700; } .url.call { color:var(--url-call); } .url.own { color:var(--url-own); } .url.ext { color:var(--url-ext); }
+.url::after { content:attr(data-kind); margin-left:6px; font:600 9px/1 system-ui, sans-serif; text-transform:uppercase; letter-spacing:.05em; opacity:.8; }
+.url:hover { background:color-mix(in srgb, currentColor 20%, transparent); }
+.urls { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; } .urls .url { white-space:normal; word-break:break-all; }
+dialog.dlg pre .url { white-space:normal; word-break:break-all; }
