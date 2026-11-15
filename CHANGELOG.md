@@ -8,6 +8,7 @@
 
 - Pods: **Describe** (status, why a container restarted, events, as JSON) and CPU / memory columns when the cluster has metrics-server (hidden otherwise). Deployments: **Scale** and **Rollout restart**. Logs: "since" range and a level filter.
 - Auto refresh checkbox and a refresh-now button; pod metrics are fetched every third refresh and failed refreshes back off.
+- Cheaper reads: Kubernetes lists are answered from the API server's cache; the Elasticsearch hit count is capped at 10,000.
 - Redis: edit a string value (TTL kept), export keys with their values as JSON. Elasticsearch: export the loaded documents as JSON or CSV.
 - Command toasts have a button that copies the command.
 - UI: icons, in-app dialogs instead of browser pop-ups, JSON shown indented everywhere, minimize / close for the console dock.
